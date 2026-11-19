@@ -2519,6 +2519,7 @@
             </h3>
 
             <div id="bulkResultsActions" role="group" aria-label="Gerenciar imagens de corpo" style="display:none;gap:8px;justify-content:center;align-items:center;flex-wrap:wrap;margin-bottom:14px;padding:10px;background:#fff;border:1px solid #e0e7ff;border-radius:12px;">
+                <button type="button" class="batch-action-btn" id="regroupResultsButton" onclick="openResultRegroup()">Agrupar / desagrupar</button>
                 <button type="button" class="batch-action-btn" id="toggleResultSelection" onclick="toggleBulkResultSelection()">Selecionar várias</button>
                 <button type="button" class="batch-action-btn" id="selectAllResults" hidden onclick="toggleSelectAllResults()">Selecionar todas</button>
                 <button type="button" class="batch-action-btn" id="deleteSelectedResults" hidden onclick="bulkDeleteResults(false)" style="color:#b91c1c;">Excluir selecionadas</button>
@@ -2552,7 +2553,7 @@
         </div>
 
         <div style="margin-top:auto; text-align:center; padding:24px 0 8px; color:#aaa; font-size:13px; font-weight:600; letter-spacing:.02em;">
-            Beframe by Beside Media © 2026 · Revisão Imagens 03
+            Beframe by Beside Media © 2026 · Revisão Agrupamento 01
         </div>
 
         <!-- Modal: Como funciona o Beframe -->
@@ -2688,6 +2689,7 @@
                 </div>
                 <button type="button" id="applyBackgroundToAll" class="batch-action-btn" disabled title="Escolha Personalizado para aplicar a cor ao lote" onclick="applyAppearanceToBatch('background')" style="display:flex;width:100%;margin-top:8px;padding:10px;background:#eef2ff;border-color:#c7d2fe;color:#343fa0;">Aplicar a todas as imagens</button>
             </div>
+            <button type="button" class="batch-action-btn" id="regroupEditorButton" hidden onclick="openResultRegroup()" title="Salva o ajuste atual e abre o agrupamento">Agrupar / desagrupar</button>
             <!-- Slot de troca de imagem (edit banner) -->
             <div id="subSlotUploads" style="border-top:2px solid #e0e7ff; padding-top:12px; margin-top:4px;"></div>
             <div class="editor-panel-actions">
@@ -5817,6 +5819,7 @@
         function updateBulkResultActions() {
             for (const result of selectedResults) if (!pdfResults.includes(result)) selectedResults.delete(result);
             if (!pdfResults.length) selectingResults = false;
+            document.getElementById('regroupResultsButton').hidden = !hasRegroupableImages();
             document.getElementById('bulkResultsActions').style.display = pdfResults.length ? 'flex' : 'none';
             const toggle = document.getElementById('toggleResultSelection');
             toggle.textContent = selectingResults ? 'Cancelar seleção' : 'Selecionar várias';
@@ -6408,6 +6411,7 @@
         function updateResultNavigation() {
             updateBatchFrameButton();
             const navigation = document.getElementById('resultNavigation');
+            document.getElementById('regroupEditorButton').hidden = editingPdfResultIndex === null || !hasRegroupableImages();
             const index = editingPdfResultIndex;
             navigation.hidden = index === null || pdfResults.length <= 1;
             document.getElementById('resultPosition').textContent = index === null ? '' : `${index + 1} de ${pdfResults.length}`;
@@ -7953,5 +7957,173 @@
         <div id="galleryPreview" style="display:none; position:fixed; z-index:9100; pointer-events:none; border-radius:14px; overflow:hidden; box-shadow:0 16px 48px rgba(0,0,0,0.45); border:3px solid white; background:#111; width:360px;">
             <img id="galleryPreviewImg" src="" style="width:100%; display:block; max-height:260px; object-fit:contain; background:#111;">
         </div>
+    <dialog id="resultRegroupDialog" aria-labelledby="resultRegroupTitle" style="margin:auto;width:min(650px,94vw);max-height:90vh;overflow:auto;border:0;border-radius:24px;padding:clamp(16px,4vw,30px);color:#191e31;box-shadow:0 24px 80px #191e3150;">
+        <style>#resultRegroupDialog::backdrop { background:rgba(15,20,40,.55); backdrop-filter:blur(4px); }</style>
+        <h2 id="resultRegroupTitle" style="font-size:20px;margin-bottom:10px;">Agrupar / desagrupar imagens</h2>
+        <p style="font-size:14px;color:#555;">Use os botões entre as fotos para unir ou separar. A capa não muda. Ao unir fotos com molduras diferentes, vale a moldura da primeira.</p>
+        <div id="resultRegroupGrid" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:10px;margin:20px 0;"></div>
+        <p id="resultRegroupStatus" role="status" style="font-size:13px;text-align:center;margin-bottom:12px;"></p>
+        <div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;">
+            <button id="resultRegroupCancel" type="button" class="batch-action-btn" onclick="document.getElementById('resultRegroupDialog').close()">Cancelar</button>
+            <button id="resultRegroupApply" type="button" class="action-btn download-btn" style="margin:0;" onclick="applyResultRegroup()">Aplicar agrupamento</button>
+        </div>
+    </dialog>
+    <script>
+        let regroupDraft = null;
+        const regroupDialog = document.getElementById('resultRegroupDialog');
+        regroupDialog.addEventListener('cancel', e => { if (editingBusy) e.preventDefault(); });
+        regroupDialog.addEventListener('close', () => {
+            regroupDraft = null;
+            document.getElementById('resultRegroupGrid').replaceChildren();
+        });
+
+        function hasRegroupableImages() {
+            return pdfResults.reduce((n, r) => n + r.images.length, 0) > 1;
+        }
+
+        async function openResultRegroup() {
+            if (editingBusy || frameChangePending || isProcessingPdf || regroupDialog.open || !hasRegroupableImages()) return;
+            if (editingPdfResultIndex !== null) {
+                deactivateAllModes();
+                if (!await saveEditedPdfResult()) return;
+            }
+            const results = [...pdfResults];
+            const items = results.flatMap(result => result.images.map((src, index) => ({ result, src, index })));
+            const original = items.map((item,i) => items[i+1]?.result === item.result);
+            regroupDraft = { results, items, original, joins: [...original] };
+            document.getElementById('resultRegroupStatus').textContent = '';
+            renderResultRegroup();
+            regroupDialog.showModal();
+        }
+
+        function renderResultRegroup(focusIndex) {
+            const { items, joins, original } = regroupDraft;
+            const grid = document.getElementById('resultRegroupGrid');
+            grid.replaceChildren();
+            let group = 1;
+            items.forEach((item, i) => {
+                const card = document.createElement('div');
+                card.style.cssText = 'width:94px;padding:5px;border:2px solid #dce3ff;border-radius:10px;text-align:center;font-size:11px;';
+                const photo = document.createElement('img');
+                photo.src = item.src;
+                photo.alt = `Imagem ${i+1}`;
+                photo.style.cssText = 'width:100%;height:64px;object-fit:contain;border-radius:6px;display:block;';
+                card.append(photo, document.createTextNode(`Moldura ${group}`));
+                grid.append(card);
+                if (i === items.length-1) return;
+                const control = document.createElement('button');
+                control.type = 'button';
+                control.className = 'image-slot-btn';
+                control.dataset.join = i;
+                control.title = joins[i] ? 'Separar em molduras diferentes' : 'Unir na mesma moldura';
+                control.setAttribute('aria-label', `${control.title}: imagens ${i+1} e ${i+2}`);
+                control.setAttribute('aria-pressed', String(joins[i]));
+                control.innerHTML = joins[i] ? ICON('link') : ICON('scissors');
+                if (joins[i]) control.style.background = '#e0e7ff';
+                control.onclick = () => {
+                    const status = document.getElementById('resultRegroupStatus');
+                    if (!joins[i]) {
+                        let left = i, right = i+1;
+                        while (left > 0 && joins[left-1]) left--;
+                        while (joins[right]) right++;
+                        if (right-left+1 > MAX_IMAGE_SLOTS) {
+                            status.textContent = `Máximo de ${MAX_IMAGE_SLOTS} imagens por moldura.`;
+                            return;
+                        }
+                    }
+                    status.textContent = '';
+                    joins[i] = !joins[i];
+                    renderResultRegroup(i);
+                };
+                grid.append(control);
+                if (!joins[i]) group++;
+            });
+            document.getElementById('resultRegroupApply').disabled = joins.every((v, i) => v === original[i]);
+            if (focusIndex !== undefined) grid.querySelector(`[data-join="${focusIndex}"]`)?.focus();
+        }
+
+        async function applyResultRegroup() {
+            if (!regroupDraft || editingBusy || frameChangePending || isProcessingPdf) return;
+            if (!regroupDialog.open || document.getElementById('resultRegroupApply').disabled) return;
+            const { results, items, joins } = regroupDraft;
+            if (results.length !== pdfResults.length || results.some((r,i) => r !== pdfResults[i])) return;
+            const groups = [];
+            let current = [];
+            items.forEach((item,i) => {
+                current.push(item);
+                if (!joins[i]) { groups.push(current); current = []; }
+            });
+            const apply = document.getElementById('resultRegroupApply');
+            const cancel = document.getElementById('resultRegroupCancel');
+            const status = document.getElementById('resultRegroupStatus');
+            editingBusy = apply.disabled = cancel.disabled = true;
+            regroupDialog.querySelectorAll('[data-join]').forEach(b => b.disabled = true);
+            status.textContent = 'Remontando as molduras alteradas…';
+            try {
+                const next = [];
+                const artLoads = new Map();
+                const areas = new Map();
+                for (const group of groups) {
+                    const base = group[0].result;
+                    if (group.length === base.images.length && group.every((item,i) => item.result === base && item.index === i)) {
+                        next.push(base);
+                        continue;
+                    }
+                    const portal = base.portal || activePortal;
+                    const links = PORTALS[portal] || PORTALS.manualweb;
+                    const slots = [];
+                    const slotStates = [];
+                    for (const item of group) {
+                        const uploadedImage = await loadImageFromDataUrl(item.src);
+                        const url = uploadedImage.width > uploadedImage.height ? links.h : links.v;
+                        let art = base.frameConfig?.rawFrameImage || defaultFrameCache[url];
+                        if (!art) {
+                            if (!artLoads.has(url)) artLoads.set(url, new Promise((resolve,reject) => {
+                                const img = new Image();
+                                img.crossOrigin = 'anonymous';
+                                img.onload = () => resolve(img);
+                                img.onerror = () => reject(new Error('Não foi possível carregar uma das molduras.'));
+                                img.src = url;
+                            }));
+                            art = await artLoads.get(url);
+                        }
+                        if (!areas.has(art)) areas.set(art, getTransparentArea(art));
+                        const state = item.result.slotStates?.[item.index];
+                        const slot = { ...createEmptyFrame(), uploadedImage, rawFrameImage: art,
+                            frameOrientation: art.width > art.height ? 'horizontal' : 'vertical',
+                            transparentArea: areas.get(art), dominantColor: measureDominantColor(uploadedImage) };
+                        if (state) Object.assign(slot, { imageOffset: { ...state.offset }, imageScale: state.scale,
+                            fitMode: state.fitMode, bgMode: state.bgMode, customColor: state.customColor,
+                            brushCanvas: state.brushDataUrl ? await loadImageFromDataUrl(state.brushDataUrl) : null });
+                        slots.push(slot);
+                        slotStates.push({ offset: slot.imageOffset, scale: slot.imageScale, fitMode: slot.fitMode,
+                            bgMode: slot.bgMode, customColor: slot.customColor, brushDataUrl: state?.brushDataUrl || null });
+                    }
+                    const composed = document.createElement('canvas');
+                    drawFrameComposition(composed, slots);
+                    const flat = document.createElement('canvas');
+                    flat.width = composed.width; flat.height = composed.height;
+                    const ctx = flat.getContext('2d');
+                    ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, flat.width, flat.height); ctx.drawImage(composed, 0, 0);
+                    const blob = await new Promise(resolve => flat.toBlob(resolve, 'image/jpeg', 1));
+                    if (!blob) throw new Error('Não foi possível montar uma das imagens.');
+                    next.push({ name: base.name, portal, frameConfig: base.frameConfig, images: group.map(item => item.src),
+                        slotStates, blob, dataUrl: flat.toDataURL('image/jpeg', 1) });
+                }
+                pdfResults = next;
+                selectingResults = false;
+                selectedResults.clear();
+                regroupDialog.close();
+                renderPdfResultsGrid();
+                document.getElementById('regroupResultsButton').focus();
+                showNotification('Agrupamento atualizado!', 'success');
+            } catch (err) {
+                status.textContent = err.message || 'Não foi possível remontar. Nada foi alterado.';
+            } finally {
+                editingBusy = apply.disabled = cancel.disabled = false;
+                regroupDialog.querySelectorAll('[data-join]').forEach(b => b.disabled = false);
+            }
+        }
+    </script>
 </body>
 </html>
