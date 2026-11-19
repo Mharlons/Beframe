@@ -2224,6 +2224,9 @@
             body { padding: 8px; }
             .portal-selection .portal-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
         }
+        #applyBackgroundToAll:disabled, #bulkResultsActions button:disabled {
+            opacity: 0.55; cursor: not-allowed; transform: none; box-shadow: none;
+        }
     </style>
 </head>
 <body>
@@ -2505,10 +2508,11 @@
             </h3>
 
             <div id="bulkResultsActions" role="group" aria-label="Gerenciar imagens de corpo" style="display:none;gap:8px;justify-content:center;align-items:center;flex-wrap:wrap;margin-bottom:14px;padding:10px;background:#fff;border:1px solid #e0e7ff;border-radius:12px;">
+                <p id="bodyImageCount" style="flex-basis:100%;text-align:center;font-size:13px;font-weight:700;color:#191e31;"></p>
                 <button type="button" class="portal-btn" id="toggleResultSelection" onclick="toggleBulkResultSelection()">Selecionar várias</button>
                 <button type="button" class="portal-btn" id="selectAllResults" hidden onclick="toggleSelectAllResults()">Selecionar todas</button>
                 <button type="button" class="portal-btn" id="deleteSelectedResults" hidden onclick="bulkDeleteResults(false)" style="color:#b91c1c;">Excluir selecionadas</button>
-                <button type="button" class="portal-btn" onclick="bulkDeleteResults(true)" style="color:#b91c1c;border-color:#fecaca;">Apagar todas</button>
+                <button type="button" class="portal-btn" id="deleteAllBodyImages" onclick="bulkDeleteResults(true)" style="color:#b91c1c;border-color:#fecaca;">Apagar todas</button>
             </div>
             <div id="pdfResultsGrid" style="display:flex; flex-wrap:wrap; gap:18px; justify-content:center;" ondragover="event.preventDefault();" ondrop="if(event.target===this){event.preventDefault(); const fromIdx = pdfResults.findIndex(x => x._uid === _draggedResultUid); if (fromIdx > -1) movePdfResult(fromIdx, pdfResults.length - 1);}"></div>
             <div style="display:flex; gap:16px; justify-content:center; margin-top:24px; flex-wrap:wrap;">
@@ -2527,6 +2531,24 @@
             </div>
             <div id="frameSelector" style="text-align:center; font-weight:700; color:#191e31; margin-bottom:16px; font-size:15px;"></div>
 
+            <div id="editorBackgroundControls" style="background:#f8f9ff;border:1px solid #e0e7ff;border-radius:12px;padding:12px;margin-bottom:12px;">
+                <label for="bgMode" style="font-size:13px; font-weight:700; color:#191e31; display:block; margin-bottom:6px;">Cor de fundo</label>
+                <select id="bgMode" class="control-select" onchange="updateFrameSettings()" style="width:100%; padding:8px 10px; font-size:13px;">
+                    <option value="dominant">Automático</option>
+                    <option value="white">Branco</option>
+                    <option value="black">Preto</option>
+                    <option value="custom">Personalizado</option>
+                </select>
+                <div id="customColorGroup" style="display:none; margin-top:8px; gap:8px; align-items:center; flex-wrap:wrap;" class="color-picker-row">
+                    <div class="color-display" id="colorDisplay" style="width:38px; height:38px; flex-shrink:0;"></div>
+                    <input type="text" id="colorInput" aria-label="Cor de fundo em hexadecimal" class="color-input" placeholder="#FFFFFF" maxlength="7" value="#FFFFFF" style="font-size:13px; padding:8px; min-width:90px; flex:1;">
+                    <button type="button" class="eyedropper-btn" id="eyedropperBtn" onclick="activateEyedropper()" style="padding:8px 12px; font-size:13px; flex-shrink:0; white-space:nowrap;"><span data-icon="palette" data-icon-size="14"></span> Cor</button>
+                </div>
+                <div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <button type="button" id="applyBackgroundToAll" class="portal-btn" disabled aria-describedby="batchColorHelp" onclick="applyAppearanceToBatch('background')" style="padding:10px;max-width:100%;background:#eef2ff;border-color:#c7d2fe;color:#343fa0;">Aplicar a todas as imagens</button>
+                    <small id="batchColorHelp" style="color:#535b75;">Selecione Personalizado para aplicar uma cor ao lote.</small>
+                </div>
+            </div>
             <div id="canvasModeIndicator" role="status" hidden></div>
             <div class="canvas-container">
             <div class="canvas-wrapper">
@@ -2660,19 +2682,7 @@
                     <option value="contain" selected>Conter</option>
                     <option value="fill">Esticar</option>
                 </select>
-                <label style="font-size:12px; font-weight:700; color:#191e31; display:block; margin:10px 0 6px;">Cor de fundo</label>
-                <select id="bgMode" class="control-select" onchange="updateFrameSettings()" style="width:100%; padding:8px 10px; font-size:13px;">
-                    <option value="dominant">Automático</option>
-                    <option value="white">Branco</option>
-                    <option value="black">Preto</option>
-                    <option value="custom">Personalizado</option>
-                </select>
-                <div id="customColorGroup" style="display:none; margin-top:8px; gap:8px; align-items:center; flex-wrap:wrap;" class="color-picker-row">
-                    <div class="color-display" id="colorDisplay" style="width:38px; height:38px; flex-shrink:0;"></div>
-                    <input type="text" id="colorInput" class="color-input" placeholder="#FFFFFF" maxlength="7" value="#FFFFFF" style="font-size:13px; padding:8px; min-width:90px; flex:1;">
-                    <button type="button" class="eyedropper-btn" id="eyedropperBtn" onclick="activateEyedropper()" style="padding:8px 12px; font-size:13px; flex-shrink:0; white-space:nowrap;"><span data-icon="palette" data-icon-size="14"></span> Cor</button>
-                    <button type="button" id="applyBackgroundToAll" class="portal-btn" onclick="applyAppearanceToBatch('background')" style="width:100%;padding:10px;background:#eef2ff;border-color:#c7d2fe;color:#343fa0;">Aplicar a todas as imagens</button>
-                </div>
+
             </div>
             <!-- Slot de troca de imagem (edit banner) -->
             <div id="subSlotUploads" style="border-top:2px solid #e0e7ff; padding-top:12px; margin-top:4px;"></div>
@@ -3920,7 +3930,10 @@
 
         function updateColorPickerVisibility() {
             const bgMode = document.getElementById('bgMode').value;
-            document.getElementById('customColorGroup').style.display = bgMode === 'custom' ? 'flex' : 'none';
+            const custom = bgMode === 'custom';
+            document.getElementById('customColorGroup').style.display = custom ? 'flex' : 'none';
+            document.getElementById('applyBackgroundToAll').disabled = !custom;
+            document.getElementById('batchColorHelp').hidden = custom;
         }
 
 
@@ -5648,7 +5661,7 @@
             } finally {
                 editingBusy = false;
                 if (backgroundButton) {
-                    backgroundButton.disabled = false;
+                    updateColorPickerVisibility();
                     backgroundButton.textContent = 'Aplicar a todas as imagens';
                 }
             }
@@ -5800,8 +5813,13 @@
         function updateBulkResultActions() {
             for (const result of selectedResults) if (!pdfResults.includes(result)) selectedResults.delete(result);
             if (!pdfResults.length) selectingResults = false;
-            document.getElementById('bulkResultsActions').style.display = pdfResults.length ? 'flex' : 'none';
+            const count = pdfResults.length;
+            document.getElementById('bulkResultsActions').style.display = (count || coverImage) ? 'flex' : 'none';
+            document.getElementById('bodyImageCount').textContent = count
+                ? `Imagens de corpo (${count})` : 'Adicione imagens de corpo para selecionar ou apagar. A capa não entra no lote.';
+            document.getElementById('deleteAllBodyImages').disabled = !count;
             const toggle = document.getElementById('toggleResultSelection');
+            toggle.disabled = !count;
             toggle.textContent = selectingResults ? 'Cancelar seleção' : 'Selecionar várias';
             toggle.setAttribute('aria-pressed', String(selectingResults));
             const selectAll = document.getElementById('selectAllResults');
