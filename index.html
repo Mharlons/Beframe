@@ -2689,7 +2689,6 @@
                 </div>
                 <button type="button" id="applyBackgroundToAll" class="batch-action-btn" disabled title="Escolha Personalizado para aplicar a cor ao lote" onclick="applyAppearanceToBatch('background')" style="display:flex;width:100%;margin-top:8px;padding:10px;background:#eef2ff;border-color:#c7d2fe;color:#343fa0;">Aplicar a todas as imagens</button>
             </div>
-            <button type="button" class="batch-action-btn" id="regroupEditorButton" hidden onclick="openResultRegroup()" title="Salva o ajuste atual e abre o agrupamento">Agrupar / desagrupar</button>
             <!-- Slot de troca de imagem (edit banner) -->
             <div id="subSlotUploads" style="border-top:2px solid #e0e7ff; padding-top:12px; margin-top:4px;"></div>
             <div class="editor-panel-actions">
@@ -6411,7 +6410,6 @@
         function updateResultNavigation() {
             updateBatchFrameButton();
             const navigation = document.getElementById('resultNavigation');
-            document.getElementById('regroupEditorButton').hidden = editingPdfResultIndex === null || !hasRegroupableImages();
             const index = editingPdfResultIndex;
             navigation.hidden = index === null || pdfResults.length <= 1;
             document.getElementById('resultPosition').textContent = index === null ? '' : `${index + 1} de ${pdfResults.length}`;
