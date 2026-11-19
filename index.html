@@ -2133,6 +2133,7 @@
                 <button type="button" class="portal-btn" data-portal="cursya" onclick="selectPortal('cursya')">Cursya</button>
                 <button type="button" class="portal-btn" data-portal="carreiraemcurso" onclick="selectPortal('carreiraemcurso')">Carreira em Curso</button>
                 <button type="button" class="portal-btn" data-portal="pasofacil" onclick="selectPortal('pasofacil')">Paso Facil</button>
+                <button type="button" class="portal-btn" data-portal="embarkei" onclick="selectPortal('embarkei')">Embarkei</button>
             </div>
             <div id="customFramePanel" style="display:none; margin-top:14px;">
                 <div class="frame-upload-box" id="customFrameBox" style="max-width:400px; margin:0 auto;">
@@ -2140,6 +2141,10 @@
                     <h3 class="upload-title" id="customFrameBoxTitle">Moldura Personalizada (PNG)</h3>
                     <p class="upload-description">Clique ou arraste o PNG aqui<br><small>Substitui a moldura padrão nesta sessão</small></p>
                     <input type="file" id="customFrameUploadInput" accept="image/png">
+                </div>
+                <div style="text-align:center;margin-top:10px;">
+                    <button type="button" class="portal-btn" onclick="document.getElementById('overlayFrameUploadInput').click()">Adicionar segunda moldura (PNG)</button>
+                    <input type="file" id="overlayFrameUploadInput" accept="image/png" onchange="loadCustomFrameFile(this, true)">
                 </div>
                 <div style="text-align:center; margin-top:8px;">
                     <button type="button" onclick="clearCustomFrame()" style="background:none; border:none; color:#dc2626; font-size:12px; cursor:pointer; font-family:inherit; text-decoration:underline;">
@@ -2387,6 +2392,16 @@
         <div class="status" id="status">Processando imagens...</div>
 
         <div class="preview-section" id="previewSection">
+            <div id="resultNavigation" hidden style="text-align:center;margin-bottom:12px;">
+                <button id="prevResult" class="portal-btn" type="button" onclick="navigateResults(-1)">← Anterior</button>
+                <span id="resultPosition" aria-live="polite" style="margin:0 8px;"></span>
+                <button id="nextResult" class="portal-btn" type="button" onclick="navigateResults(1)">Próxima →</button>
+            </div>
+            <div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+                <button class="portal-btn" type="button" onclick="document.getElementById('customFrameUploadInput').click()">Trocar moldura (PNG)</button>
+                <button class="portal-btn" type="button" onclick="document.getElementById('overlayFrameUploadInput').click()">Adicionar segunda moldura</button>
+                <button class="portal-btn" type="button" onclick="clearCustomFrame()">Usar moldura do portal</button>
+            </div>
             <div id="frameSelector" style="text-align:center; font-weight:700; color:#191e31; margin-bottom:16px; font-size:15px;"></div>
 
             <div class="canvas-container">
@@ -2674,6 +2689,7 @@
         // ===== PORTAIS =====
         // Para adicionar um portal: adicione uma linha abaixo com as URLs das imagens H e V
         const PORTALS = {
+            embarkei: { h: './src/embarkei-desktop.png', v: './src/embarkei-mobile.png' },
             bemotors: { h: 'https://vituchoa.github.io/moldura/src/bemotors-H.png', v: 'https://vituchoa.github.io/moldura/src/bemotors-V.png' },
             credhelper: { h: 'https://vituchoa.github.io/moldura/src/credhelper-H.png', v: 'https://vituchoa.github.io/moldura/src/credhelper-V.png' },
             guiadin: { h: 'https://vituchoa.github.io/moldura/src/guiadin-H.png', v: 'https://vituchoa.github.io/moldura/src/guiadin-V.png' },
@@ -2755,21 +2771,43 @@
             _contextMenuPortalId = null;
         }
 
-        function selectPortal(key) {
+        function markPortal(key) {
             activePortal = key;
             document.querySelectorAll('.portal-btn').forEach(b =>
                 b.classList.toggle('active', b.dataset.portal === key)
             );
 
-            // Invalida cache e recarrega frames
-            Object.keys(defaultFrameCache).forEach(k => delete defaultFrameCache[k]);
-            for (let i = 0; i < frameCount; i++) {
-                if (frames[i]?.uploadedImage) {
-                    const isH = !frames[i].isVertical;
-                    loadDefaultFrameForSlotCached(i, isH ? DEFAULT_FRAMES.horizontal : DEFAULT_FRAMES.vertical)
-                        .then(() => checkAllImagesReady());
+        }
+
+        let frameChangePending = false;
+        async function selectPortal(key) {
+            if (frameChangePending || editingBusy || isProcessingPdf) return;
+            frameChangePending = true;
+            try {
+                const urls = PORTALS[key];
+                const slots = frames.map((f, i) => ({ f, i })).filter(({ f }) => f.uploadedImage);
+                const needed = key === 'embarkei' ? [urls.h, urls.v] : slots.map(({ f }) => f.isVertical ? urls.v : urls.h);
+                await Promise.all([...new Set(needed)].map(url => {
+                    if (defaultFrameCache[url]) return;
+                    return new Promise((resolve, reject) => {
+                        const image = new Image();
+                        image.crossOrigin = 'anonymous';
+                        image.onload = () => { defaultFrameCache[url] = image; resolve(); };
+                        image.onerror = () => reject(new Error('Moldura não encontrada: ' + url.split('/').pop()));
+                        image.src = url;
+                    });
+                }));
+                markPortal(key);
+                setCustomFrameConfig(null);
+                for (const { f, i } of slots) {
+                    if (frames[i] === f) assignFrameArt(i, defaultFrameCache[f.isVertical ? urls.v : urls.h]);
                 }
-            }
+                if (slots.length && (editingPdfResultIndex !== null || document.getElementById('previewSection').classList.contains('active'))) {
+                    renderFinalCanvas();
+                }
+            } catch (err) {
+                showNotification(err.message || 'Não foi possível carregar as molduras do portal.', 'error', 4500);
+            } finally { frameChangePending = false; }
         }
 
         const DEFAULT_FRAMES = {
@@ -2830,42 +2868,63 @@
             if (open) panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
-        function clearCustomFrame() {
-            isCustomFrame = false;
-            customFrameStash = null;
-            document.getElementById('customFrameUploadInput').value = '';
-            document.getElementById('customFrameBoxTitle').textContent = 'Moldura Personalizada (PNG)';
-            document.getElementById('customFrameBox').classList.remove('has-file');
-            // Recarrega a moldura padrão em todos os frames que já têm foto
-            for (let i = 0; i < frameCount; i++) {
-                if (frames[i]?.uploadedImage) {
-                    const isH = !frames[i].isVertical;
-                    const url = isH ? DEFAULT_FRAMES.horizontal : DEFAULT_FRAMES.vertical;
-                    loadDefaultFrameForSlot(i, url);
-                }
-            }
-            document.getElementById('customFramePanel').style.display = 'none';
-            const btn = document.getElementById('toggleCustomFrameBtn');
-            btn.classList.remove('active');
-            btn.title = 'Moldura Personalizada';
-            showNotification('Voltou à moldura padrão.', 'info', 2000);
+        function clearCustomFrame() { selectPortal(activePortal); }
+
+        function setCustomFrameConfig(config) {
+            customFrameStash = config;
+            isCustomFrame = Boolean(config);
+            document.getElementById('customFrameBox').classList.toggle('has-file', isCustomFrame);
+            document.getElementById('customFrameBoxTitle').textContent = !config ? 'Moldura Personalizada (PNG)' :
+                config.overlay ? 'Duas molduras personalizadas' : 'Moldura personalizada carregada';
         }
 
-        // Carrega uma das molduras padrão (por URL) num slot específico
-        function loadDefaultFrameForSlot(index, url) {
-            const img = new Image();
-            img.crossOrigin = 'anonymous';
-            img.onload = function() {
-                frames[index].rawFrameImage = img;              // guarda o original para recolorir
-                frames[index].frameImage = getColoredFrame(img); // aplica a cor atual
-                const isFrameH = (img.naturalWidth || img.width) > (img.naturalHeight || img.height);
-                frames[index].frameOrientation = isFrameH ? 'horizontal' : 'vertical';
-                detectTransparentArea(index);
-                checkAllImagesReady();
-            };
-            img.onerror = () => showNotification('Erro ao carregar moldura padrão.', 'error');
-            img.src = url;
+        function assignFrameArt(index, img) {
+            const frame = frames[index];
+            frame.rawFrameImage = img;
+            frame.frameImage = getColoredFrame(img);
+            frame.frameOrientation = (img.naturalWidth || img.width) > (img.naturalHeight || img.height) ? 'horizontal' : 'vertical';
+            detectTransparentArea(index);
         }
+
+        async function loadCustomFrameFile(input, addOverlay = false) {
+            const file = input.files[0];
+            input.value = '';
+            if (!file || frameChangePending || editingBusy || isProcessingPdf) return;
+            frameChangePending = true;
+            let url;
+            try {
+                if (file.type !== 'image/png' && !/\.png$/i.test(file.name)) throw new Error('Selecione um arquivo PNG.');
+                url = URL.createObjectURL(file);
+                const image = await loadImageFromDataUrl(url);
+                let config = { base: image, overlay: null, rawFrameImage: image };
+                if (addOverlay) {
+                    const base = customFrameStash?.base;
+                    if (!base) throw new Error('Carregue a primeira moldura PNG antes de adicionar a segunda.');
+                    if (base.naturalWidth !== image.naturalWidth || base.naturalHeight !== image.naturalHeight) {
+                        throw new Error(`A segunda moldura deve ter ${base.naturalWidth} × ${base.naturalHeight} px.`);
+                    }
+                    const composite = document.createElement('canvas');
+                    composite.width = base.naturalWidth;
+                    composite.height = base.naturalHeight;
+                    const ctx = composite.getContext('2d');
+                    ctx.drawImage(base, 0, 0);
+                    ctx.drawImage(image, 0, 0);
+                    const pixels = ctx.getImageData(0, 0, composite.width, composite.height).data;
+                    if (!pixels.some((value, i) => i % 4 === 3 && value < 180)) throw new Error('As duas camadas juntas precisam deixar uma área transparente para a imagem.');
+                    config = { base, overlay: image, rawFrameImage: composite };
+                }
+                setCustomFrameConfig(config);
+                frames.forEach((f, i) => assignFrameArt(i, config.rawFrameImage));
+                checkAllImagesReady();
+                showNotification(addOverlay ? 'Segunda moldura aplicada sobre a primeira.' : 'Moldura personalizada aplicada!', 'success');
+            } catch (err) {
+                showNotification(err.message || 'Não foi possível abrir o PNG.', 'error');
+            } finally {
+                if (url) URL.revokeObjectURL(url);
+                frameChangePending = false;
+            }
+        }
+
         function showNotification(message, type = 'success', duration = 3000) {
             const container = document.getElementById('notificationContainer');
             
@@ -3246,8 +3305,8 @@
 
             updateUploadBoxesStatus();
 
-            if (isCustomFrame && frames[index].frameImage) {
-                frames[index].frameImage = getColoredFrame(frames[index].rawFrameImage);
+            if (customFrameStash) {
+                assignFrameArt(index, customFrameStash.rawFrameImage);
                 checkAllImagesReady();
                 return Promise.resolve();
             } else if (!isCustomFrame) {
@@ -5092,18 +5151,6 @@
             return c.toDataURL('image/png');
         }
 
-        function stashCustomFrame() {
-            // Guarda a moldura personalizada (se houver) para reutilizar durante o batch do PDF
-            if (isCustomFrame && frames[0]?.rawFrameImage) {
-                customFrameStash = {
-                    rawFrameImage: frames[0].rawFrameImage,
-                    frameImage: frames[0].frameImage,
-                    frameOrientation: frames[0].frameOrientation,
-                    transparentArea: frames[0].transparentArea ? { ...frames[0].transparentArea } : null
-                };
-            }
-        }
-
         // Cache das molduras padrão já carregadas (evita recarregar da rede a cada moldura do PDF)
         const defaultFrameCache = {};
 
@@ -5131,12 +5178,8 @@
                         resolve();
                     };
                     img.onerror = () => {
-                        if (withCors) {
-                            tryLoad(false); // tenta sem CORS
-                        } else {
-                            showNotification('Moldura não encontrada: ' + url.split('/').pop(), 'error', 4000);
-                            resolve(); // não trava o pipeline
-                        }
+                        showNotification('Moldura não encontrada: ' + url.split('/').pop(), 'error', 4000);
+                        resolve();
                     };
                     img.src = url;
                 }
@@ -5148,14 +5191,6 @@
             frameCount = n;
             initializeFrames(n);
 
-            if (isCustomFrame && customFrameStash) {
-                for (let i = 0; i < n; i++) {
-                    frames[i].rawFrameImage = customFrameStash.rawFrameImage;
-                    frames[i].frameImage = getColoredFrame(customFrameStash.rawFrameImage);
-                    frames[i].frameOrientation = customFrameStash.frameOrientation;
-                    frames[i].transparentArea = customFrameStash.transparentArea ? { ...customFrameStash.transparentArea } : null;
-                }
-            }
             // NÃO pré-carrega frames aqui — a orientação correta só é conhecida ao carregar a foto
 
             createMultipleUploadBoxes();
@@ -5173,7 +5208,6 @@
             if (isProcessingPdf) return;
             if (editingPdfResultIndex !== null) cancelEditPdfResult();
             isProcessingPdf = true;
-            stashCustomFrame();
 
             document.getElementById('pdfUploadBox').classList.add('has-file');
             document.getElementById('pdfUploadTitle').textContent = 'Processando PDF...';
@@ -5428,7 +5462,7 @@
 
                 const blob = await new Promise(resolve => exportCanvas.toBlob(resolve, 'image/jpeg', quality));
                 // Nome será definido dinamicamente por renamePdfResults() ao renderizar a grid
-                results.push({ name: `img-${si + 1}`, blob, dataUrl: exportCanvas.toDataURL('image/jpeg', quality), images });
+                results.push({ name: `img-${si + 1}`, blob, dataUrl: exportCanvas.toDataURL('image/jpeg', quality), images, frameConfig: customFrameStash, portal: activePortal });
             }
 
             setPdfProgress(100, `Pronto! ${groups.length} moldura(s) geradas. Confira a pré-visualização.`);
@@ -5452,6 +5486,8 @@
 
         let pdfResults = [];
         let editingPdfResultIndex = null;
+        let editingBusy = false;
+        let preEditConfig = null;
 
         function showPdfResultsPreview(results, count) {
             pdfResults = results;
@@ -5764,7 +5800,14 @@
         // e não recebem clique corretamente.
         async function editPdfResult(idx) {
             const result = pdfResults[idx];
+            if (!result || editingBusy || frameChangePending) return;
+            editingBusy = true;
+            preEditConfig = { config: customFrameStash, portal: activePortal };
+            markPortal(result.portal || activePortal);
+            setCustomFrameConfig(result.frameConfig || null);
+            frames = [];
             editingPdfResultIndex = idx;
+            try {
             activeFrameIndex = 0; // começa editando a primeira imagem
             resetEditHistory();
 
@@ -5806,7 +5849,12 @@
             activateMoveMode(); // ferramenta padrão ao entrar no ajuste
 
             document.getElementById('pdfResultsSection').style.display = 'none';
+            updateResultNavigation();
             document.querySelector('.canvas-container').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } catch (err) {
+                cancelEditPdfResult(false);
+                showNotification(err.message || 'Não foi possível reabrir a edição.', 'error');
+            } finally { editingBusy = false; }
         }
 
         function swapFrameSlots(a, b) {
@@ -5824,7 +5872,7 @@
             const wrap = document.getElementById('subSlotUploads');
             if (!wrap) return;
             wrap.innerHTML = '';
-            if (!editingPdfResultIndex !== null && frameCount === 0) return;
+            if (frameCount === 0) return;
 
             const title = document.createElement('p');
             title.style.cssText = 'font-size:11px; font-weight:700; color:#aaa; margin-bottom:2px; text-align:center;';
@@ -5879,7 +5927,17 @@
                     const reader = new FileReader();
                     reader.onload = (ev) => {
                         const img = new Image();
-                        img.onload = () => { loadImageIntoFrameSlot(i, img); renderFinalCanvas(); renderEditSlotUploads(); showNotification(`Imagem ${i + 1} substituída.`, 'success'); };
+                        img.onload = async () => {
+                            if (editingBusy || frameChangePending || !document.getElementById('previewSection').classList.contains('active')) return;
+                            frameChangePending = true;
+                            try {
+                                activeFrameIndex = i;
+                                await loadImageIntoFrameSlot(i, img);
+                                renderFinalCanvas();
+                                renderEditSlotUploads();
+                                showNotification(`Imagem ${i + 1} substituída.`, 'success');
+                            } finally { frameChangePending = false; }
+                        };
                         img.src = ev.target.result;
                     };
                     reader.readAsDataURL(file);
@@ -5927,8 +5985,9 @@
         }
 
         async function saveEditedPdfResult() {
-            if (editingPdfResultIndex === null) return;
-
+            if (editingPdfResultIndex === null || editingBusy || frameChangePending) return false;
+            editingBusy = true;
+            try {
             // Aplica todos os ajustes e re-renderiza
             applyFrameColorToAll();
             renderFinalCanvas();
@@ -5967,6 +6026,9 @@
                 });
             }
 
+            if (!blob) throw new Error('Não foi possível gerar a imagem editada.');
+            pdfResults[editingPdfResultIndex].frameConfig = customFrameStash;
+            pdfResults[editingPdfResultIndex].portal = activePortal;
             pdfResults[editingPdfResultIndex].blob       = blob;
             pdfResults[editingPdfResultIndex].dataUrl    = dataUrl;
             pdfResults[editingPdfResultIndex].images     = images;
@@ -5978,17 +6040,32 @@
             hideFloatingToolbar();
             renderPdfResultsGrid();
             document.getElementById('pdfResultsSection').style.display = 'block';
+            preEditConfig = null;
+            updateResultNavigation();
             showNotification('Ajuste salvo!', 'success');
+            return true;
+            } catch (err) {
+                document.getElementById('previewSection').classList.add('active');
+                showFloatingToolbar();
+                showNotification(err.message || 'Não foi possível salvar o ajuste.', 'error');
+                return false;
+            } finally { editingBusy = false; }
         }
 
-        function cancelEditPdfResult() {
+        function cancelEditPdfResult(notify = true) {
+            if (preEditConfig) {
+                markPortal(preEditConfig.portal);
+                setCustomFrameConfig(preEditConfig.config);
+                preEditConfig = null;
+            }
             editingPdfResultIndex = null;
+            updateResultNavigation();
             resetEditHistory();
             deactivateAllModes();
             document.getElementById('previewSection').classList.remove('active');
             hideFloatingToolbar();
             document.getElementById('pdfResultsSection').style.display = 'block';
-            showNotification('Ajuste cancelado.', 'info', 2000);
+            if (notify) showNotification('Ajuste cancelado.', 'info', 2000);
         }
 
         async function downloadAllPdfResults() {
@@ -6082,7 +6159,34 @@
             showNotification(`Editando Moldura ${activeFrameIndex + 1} de ${frameCount}`, 'info', 2000);
         }
 
+        function updateResultNavigation() {
+            const navigation = document.getElementById('resultNavigation');
+            const index = editingPdfResultIndex;
+            navigation.hidden = index === null || pdfResults.length <= 1;
+            document.getElementById('resultPosition').textContent = index === null ? '' : `${index + 1} de ${pdfResults.length}`;
+            document.getElementById('prevResult').disabled = index === null || index <= 0;
+            document.getElementById('nextResult').disabled = index === null || index >= pdfResults.length - 1;
+        }
+        async function navigateResults(direction) {
+            if (editingPdfResultIndex === null || editingBusy || frameChangePending) return;
+            const next = editingPdfResultIndex + direction;
+            if (!pdfResults[next]) return;
+            deactivateAllModes();
+            if (await saveEditedPdfResult()) await editPdfResult(next);
+        }
+        const editorSafeTargets = '#previewSection, .side-tools-column, #customFramePanel, #portalContextMenu, [id$="Overlay"], #galleryModal, #galleryPreview, button, a, label, input, select, textarea, [role="button"]';
+        let startedOutsideEditor = false;
+        document.addEventListener('pointerdown', event => {
+            startedOutsideEditor = !event.target.closest(editorSafeTargets);
+        }, true);
+        document.addEventListener('click', event => {
+            const close = startedOutsideEditor && !event.target.closest(editorSafeTargets);
+            startedOutsideEditor = false;
+            if (close && editingPdfResultIndex !== null && document.getElementById('previewSection').classList.contains('active')) closeEditMode();
+        });
+
         function closeEditMode() {
+            if (editingBusy || frameChangePending || isProcessingPdf) return;
             deactivateAllModes();
             document.getElementById('previewSection').classList.remove('active');
             hideFloatingToolbar();
@@ -6543,36 +6647,7 @@
             document.getElementById('customFrameUploadInput').click();
         });
 
-        document.getElementById('customFrameUploadInput').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            isCustomFrame = true;
-            document.getElementById('customFrameBox').classList.add('has-file');
-            document.getElementById('customFrameBoxTitle').innerHTML = `${ICON('check')} Moldura Personalizada Carregada`;
-
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                const img = new Image();
-                img.onload = function() {
-                    const isFrameH = (img.naturalWidth || img.width) > (img.naturalHeight || img.height);
-                    // Aplica em todos os slots, independente de orientação
-                    for (let i = 0; i < frameCount; i++) {
-                        frames[i].rawFrameImage = img;
-                        frames[i].frameImage = getColoredFrame(img);
-                        frames[i].frameOrientation = isFrameH ? 'horizontal' : 'vertical';
-                    }
-                    detectTransparentArea(0);
-                    replicateCustomFrameToAll();
-
-                    const hasImages = frames.some(f => f.uploadedImage);
-                    if (hasImages) checkAllImagesReady();
-                    showNotification('Moldura personalizada carregada!', 'success');
-                };
-                img.src = event.target.result;
-            };
-            reader.readAsDataURL(file);
-        });
+        document.getElementById('customFrameUploadInput').addEventListener('change', e => loadCustomFrameFile(e.target));
 
         document.getElementById('pdfUploadBox').addEventListener('click', function() {
             document.getElementById('pdfUploadInput').click();
@@ -7212,7 +7287,7 @@
             const portalNames = {
                 manualweb:'Manual da Web', insiderbits:'Insider Bits', bemotors:'BeMotors',
                 credhelper:'Credhelper', guiadin:'Guiadin', stonkstutors:'Stonkstutors',
-                syne:'Syne', tuguiasocial:'Tu Guia Social', tutorsya:'Tutorsya', yacuenta:'Yacuenta', cursya:'Cursya',
+                syne:'Syne', tuguiasocial:'Tu Guia Social', tutorsya:'Tutorsya', yacuenta:'Yacuenta', embarkei:'Embarkei', cursya:'Cursya',
                 carreiraemcurso:'Carreira em Curso', pasofacil:'Paso Facil'
             };
             const titleEl = document.getElementById('galleryPortalLabel');
@@ -7452,7 +7527,7 @@
             renderStaticIcons();
             setupDragAndDrop();
             initFavoritePortals();
-            selectPortal('manualweb'); // ativa Manual da Web por padrão
+            markPortal('manualweb'); // ativa Manual da Web por padrão
             // Garante que a seção manual começa fechada
             closeManualSection();
             initializeFrames(1);
