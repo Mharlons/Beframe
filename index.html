@@ -2557,7 +2557,7 @@
         </div>
 
         <div style="margin-top:auto; text-align:center; padding:24px 0 8px; color:#aaa; font-size:13px; font-weight:600; letter-spacing:.02em;">
-            Beframe by Beside Media © 2026 · Revisão Credhelper 01
+            Beframe by Beside Media © 2026 · Revisão Portais 01
         </div>
 
         <!-- Modal: Como funciona o Beframe -->
@@ -2920,30 +2920,76 @@
         }
 
         let frameChangePending = false;
-        async function selectPortal(key) {
-            if (frameChangePending || editingBusy || isProcessingPdf) return;
+        async function selectPortal(key, clearCustom = false) {
+            if (!PORTALS[key] || frameChangePending || editingBusy || isProcessingPdf) return;
             frameChangePending = true;
             try {
                 const urls = PORTALS[key];
-                const slots = frames.map((f, i) => ({ f, i })).filter(({ f }) => f.uploadedImage);
-                const needed = key === 'embarkei' ? [urls.h, urls.v] : slots.map(({ f }) => f.isVertical ? urls.v : urls.h);
-                await Promise.all([...new Set(needed)].map(url => {
-                    if (defaultFrameCache[url]) return;
-                    return new Promise((resolve, reject) => {
+                const batch = [...pdfResults];
+                const editorIndex = editingPdfResultIndex;
+                const updateLive = clearCustom || !customFrameStash;
+                const slots = updateLive ? frames.map((f, i) => ({ f, i })).filter(({ f }) => f.uploadedImage) : [];
+                const urlFor = img => img.width > img.height ? urls.h : urls.v;
+                const loads = new Map();
+                const areas = new Map();
+                function loadArt(url) {
+                    if (defaultFrameCache[url]) return Promise.resolve(defaultFrameCache[url]);
+                    if (!loads.has(url)) loads.set(url, new Promise((resolve, reject) => {
                         const image = new Image();
                         image.crossOrigin = 'anonymous';
-                        image.onload = () => { defaultFrameCache[url] = image; resolve(); };
+                        image.onload = () => { defaultFrameCache[url] = image; resolve(image); };
                         image.onerror = () => reject(new Error('Moldura não encontrada: ' + url.split('/').pop()));
                         image.src = url;
-                    });
-                }));
-                markPortal(key);
-                setCustomFrameConfig(null);
-                for (const { f, i } of slots) {
-                    if (frames[i] === f) assignFrameArt(i, defaultFrameCache[f.isVertical ? urls.v : urls.h]);
+                    }));
+                    return loads.get(url);
                 }
-                if (slots.length && (editingPdfResultIndex !== null || document.getElementById('previewSection').classList.contains('active'))) {
+                await Promise.all(slots.map(({ f }) => loadArt(urlFor(f.uploadedImage))));
+                const patches = [];
+                if (!clearCustom) for (const result of batch) {
+                    if (result.portal === key) continue;
+                    if (result.frameConfig) {
+                        patches.push({ result, patch: { portal: key } });
+                        continue;
+                    }
+                    const rebuilt = [];
+                    for (const [i, src] of result.images.entries()) {
+                        const uploadedImage = await loadImageFromDataUrl(src);
+                        const art = await loadArt(urlFor(uploadedImage));
+                        if (!areas.has(art)) areas.set(art, getTransparentArea(art));
+                        const state = result.slotStates?.[i];
+                        rebuilt.push({ ...createEmptyFrame(), uploadedImage, rawFrameImage: art,
+                            frameOrientation: art.width > art.height ? 'horizontal' : 'vertical',
+                            transparentArea: areas.get(art), dominantColor: measureDominantColor(uploadedImage),
+                            ...(state ? { imageOffset: { ...state.offset }, imageScale: state.scale,
+                                fitMode: state.fitMode, bgMode: state.bgMode, customColor: state.customColor,
+                                brushCanvas: state.brushDataUrl ? await loadImageFromDataUrl(state.brushDataUrl) : null } : {}) });
+                    }
+                    const composed = document.createElement('canvas');
+                    drawFrameComposition(composed, rebuilt);
+                    const flat = document.createElement('canvas');
+                    flat.width = composed.width; flat.height = composed.height;
+                    const ctx = flat.getContext('2d');
+                    ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, flat.width, flat.height);
+                    ctx.drawImage(composed, 0, 0);
+                    const blob = await new Promise(resolve => flat.toBlob(resolve, 'image/jpeg', 1));
+                    if (!blob) throw new Error('Não foi possível atualizar uma das molduras.');
+                    patches.push({ result, patch: { portal: key, blob, dataUrl: flat.toDataURL('image/jpeg', 1) } });
+                }
+                if (editingPdfResultIndex !== editorIndex || batch.length !== pdfResults.length ||
+                    batch.some((r, i) => r !== pdfResults[i])) return;
+                markPortal(key);
+                if (clearCustom) setCustomFrameConfig(null);
+                if (!clearCustom && preEditConfig) preEditConfig.portal = key;
+                for (const { f, i } of slots) {
+                    if (frames[i] === f) assignFrameArt(i, defaultFrameCache[urlFor(f.uploadedImage)]);
+                }
+                for (const { result, patch } of patches) Object.assign(result, patch);
+                if (slots.length && (editorIndex !== null || document.getElementById('previewSection').classList.contains('active'))) {
                     renderFinalCanvas();
+                }
+                if (patches.length) {
+                    renderPdfResultsGrid();
+                    showNotification('Molduras do portal atualizadas.', 'success', 2500);
                 }
             } catch (err) {
                 showNotification(err.message || 'Não foi possível carregar as molduras do portal.', 'error', 4500);
@@ -3008,7 +3054,7 @@
             if (open) panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
-        function clearCustomFrame() { selectPortal(activePortal); }
+        function clearCustomFrame() { selectPortal(activePortal, true); }
 
         function setCustomFrameConfig(config) {
             customFrameStash = config;
@@ -6319,6 +6365,7 @@
         }
 
         async function downloadAllPdfResults() {
+            if (frameChangePending) { showNotification('As molduras estão sendo atualizadas.', 'info'); return; }
             if (!pdfResults.length && !coverImage) return;
             renamePdfResults();
             const cover = coverImage;
