@@ -2480,13 +2480,15 @@
                         onmouseout="this.style.background='none';this.style.color='#bbb'"
                         title="Fechar"><span data-icon="close" data-icon-size="18"></span></button>
                 </div>
+                <button type="button" id="manualBulkUploadBox" class="frame-upload-box compact-horizontal"
+                    style="display:grid; width:100%; font:inherit; cursor:pointer;"
+                    onclick="document.getElementById('manualBulkUploadInput').click()">
+                    <span class="upload-icon" aria-hidden="true"><span data-icon="camera" data-icon-size="26"></span></span>
+                    <strong class="upload-title">Selecionar imagens</strong>
+                    <span class="upload-description">Clique ou arraste uma ou várias imagens aqui<br><small>Cada imagem vira uma moldura separada — você escolhe quais unir depois</small></span>
+                </button>
+                <input type="file" id="manualBulkUploadInput" accept="image/*" multiple hidden>
             <div id="manualCreatePanel">
-                <div class="frame-upload-box compact-horizontal" id="manualBulkUploadBox" style="cursor:pointer;">
-                    <div class="upload-icon"><span data-icon="camera" data-icon-size="26"></span></div>
-                    <h3 class="upload-title">Selecionar Imagens</h3>
-                    <p class="upload-description">Clique ou arraste uma ou várias imagens aqui<br><small>Cada imagem vira uma moldura separada — você escolhe quais unir depois</small></p>
-                    <input type="file" id="manualBulkUploadInput" accept="image/*" multiple style="display:none">
-                </div>
                 <div id="manualGroupingSection" style="display:none; margin-top:20px;">
                     <p style="text-align:center; color:#888; font-size:13px;">
                         Clique em <span data-icon="scissors" data-icon-size="13"></span>/<span data-icon="link" data-icon-size="13"></span> entre as imagens para unir ou separar antes de adicionar.
@@ -2550,7 +2552,7 @@
         </div>
 
         <div style="margin-top:auto; text-align:center; padding:24px 0 8px; color:#aaa; font-size:13px; font-weight:600; letter-spacing:.02em;">
-            Beframe by Beside Media © 2026 · Revisão Lateral 02
+            Beframe by Beside Media © 2026 · Revisão Imagens 03
         </div>
 
         <!-- Modal: Como funciona o Beframe -->
@@ -6476,7 +6478,14 @@
             if (editingPdfResultIndex !== null) cancelEditPdfResult();
             // Abre a seção manual (não faz scroll automático)
             const details = document.getElementById('manualCreateSection');
-            if (details) details.style.display = 'flex';
+            if (details) {
+                const uploadButton = document.getElementById('manualBulkUploadBox');
+                const uploadInput = document.getElementById('manualBulkUploadInput');
+                uploadButton.style.display = 'grid';
+                uploadButton.classList.remove('drag-over');
+                uploadInput.value = '';
+                details.style.display = 'flex';
+            }
             // Reseta o upload em massa
             manualFlatImages = [];
             manualJoinWithNext = [];
@@ -6932,10 +6941,6 @@
                 return;
             }
             processPdfFile(file);
-        });
-
-        document.getElementById('manualBulkUploadBox').addEventListener('click', function() {
-            document.getElementById('manualBulkUploadInput').click();
         });
 
         document.getElementById('manualBulkUploadInput').addEventListener('change', function(e) {
