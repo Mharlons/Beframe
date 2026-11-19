@@ -2131,6 +2131,8 @@
                 <button type="button" class="portal-btn" data-portal="tutorsya" onclick="selectPortal('tutorsya')">Tutorsya</button>
                 <button type="button" class="portal-btn" data-portal="yacuenta" onclick="selectPortal('yacuenta')">Yacuenta</button>
                 <button type="button" class="portal-btn" data-portal="cursya" onclick="selectPortal('cursya')">Cursya</button>
+                <button type="button" class="portal-btn" data-portal="carreiraemcurso" onclick="selectPortal('carreiraemcurso')">Carreira em Curso</button>
+                <button type="button" class="portal-btn" data-portal="pasofacil" onclick="selectPortal('pasofacil')">Paso Facil</button>
             </div>
             <div id="customFramePanel" style="display:none; margin-top:14px;">
                 <div class="frame-upload-box" id="customFrameBox" style="max-width:400px; margin:0 auto;">
@@ -2679,10 +2681,12 @@
             manualweb: { h: 'https://vituchoa.github.io/moldura/src/manualH.png', v: 'https://vituchoa.github.io/moldura/src/manualV.png' },
             stonkstutors: { h: 'https://vituchoa.github.io/moldura/src/stonkstutors-H.png', v: 'https://vituchoa.github.io/moldura/src/stonkstutors-V.png' },
             syne: { h: 'https://vituchoa.github.io/moldura/src/syne-H.png', v: 'https://vituchoa.github.io/moldura/src/syne-V.png' },
-            tuguiasocial: { h: 'https://vituchoa.github.io/moldura/src/tuguiasocial-H.png', v: 'https://vituchoa.github.io/moldura/src/tuguiasocial-V.png' },
+            tuguiasocial: { h: './src/tuguiasocial-desktop.png', v: './src/tuguiasocial-mobile.png' },
             tutorsya: { h: 'https://vituchoa.github.io/moldura/src/tutorsya-H.png', v: 'https://vituchoa.github.io/moldura/src/tutorsya-V.png' },
             yacuenta: { h: 'https://vituchoa.github.io/moldura/src/yacuenta-H.png', v: 'https://vituchoa.github.io/moldura/src/yacuenta-V.png' },
             cursya: { h: './src/desktop-cursya.png', v: './src/mobile-cursya.png' },
+            carreiraemcurso: { h: './src/carreiraemcurso-desktop.png', v: './src/carreiraemcurso-mobile.png' },
+            pasofacil: { h: './src/pasofacil-desktop.png', v: './src/pasofacil-mobile.png' },
         };
         let activePortal = 'manualweb'; // portal selecionado
 
@@ -7208,7 +7212,8 @@
             const portalNames = {
                 manualweb:'Manual da Web', insiderbits:'Insider Bits', bemotors:'BeMotors',
                 credhelper:'Credhelper', guiadin:'Guiadin', stonkstutors:'Stonkstutors',
-                syne:'Syne', tuguiasocial:'Tu Guia Social', tutorsya:'Tutorsya', yacuenta:'Yacuenta', cursya:'Cursya'
+                syne:'Syne', tuguiasocial:'Tu Guia Social', tutorsya:'Tutorsya', yacuenta:'Yacuenta', cursya:'Cursya',
+                carreiraemcurso:'Carreira em Curso', pasofacil:'Paso Facil'
             };
             const titleEl = document.getElementById('galleryPortalLabel');
             if (titleEl) titleEl.textContent = portalNames[activePortal] || activePortal;
