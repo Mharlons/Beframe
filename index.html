@@ -7477,13 +7477,118 @@
                 },
             },
         };
-                                function getPortalGallery()     { return PORTAL_GALLERIES[activePortal] || { categories: [], images: {} }; }
+        const LIVE_GALLERY_HOSTS = Object.freeze({
+            manualweb: 'manualdaweb.com', guiadin: 'guiadin.com', yacuenta: 'yacuenta.com',
+            bemotors: 'bemotors.com.br', insiderbits: 'insiderbits.com', stonkstutors: 'stonkstutors.com',
+            syne: 'syne.com.br', tuguiasocial: 'tuguiasocial.com', tutorsya: 'tutorsya.com', embarkei: 'embarkei.com'
+        });
+        const LIVE_GALLERY_CATEGORY = '__recent_covers__';
+        const liveGalleryEntries = new Map();
+        let galleryRefreshController;
+
+        function getPortalGallery() {
+            const base = PORTAL_GALLERIES[activePortal] || { categories: [], images: {} };
+            const recent = liveGalleryEntries.get(activePortal);
+            if (!recent?.length) return base;
+            return {
+                categories: [{ id: LIVE_GALLERY_CATEGORY, name: 'Capas recentes' }, ...base.categories],
+                images: { [LIVE_GALLERY_CATEGORY]: recent, ...base.images }
+            };
+        }
+
+        function isCoverFilename(value) {
+            if (typeof value !== 'string' || !value) return false;
+            const file = value.split(/[?#]/, 1)[0].split('/').pop();
+            try { return /capa/i.test(decodeURIComponent(file)); }
+            catch { return /capa/i.test(file); }
+        }
+
+        async function readRecentCoverPosts(host, signal) {
+            const sources = [`https://${host}/wp-json/wp/v2/posts`, `https://${host}/?rest_route=/wp/v2/posts`];
+            let lastError;
+            for (const source of sources) {
+                const covers = [];
+                const seen = new Set();
+                let partial = false;
+                try {
+                    for (let page = 1; page <= 3; page++) {
+                        const url = new URL(source);
+                        Object.entries({ page, per_page: 25, order: 'desc', orderby: 'date', _embed: 'wp:featuredmedia',
+                            _fields: 'title,featured_media,_links,_embedded' }).forEach(([k,v]) => url.searchParams.set(k, v));
+                        let posts, pages;
+                        try {
+                            const res = await fetch(url, { signal: AbortSignal.any([signal, AbortSignal.timeout(5500)]), cache: 'no-store', credentials: 'omit' });
+                            if (!res.ok) {
+                                if (page > 1 && res.status === 400 && (await res.json().catch(() => ({})))?.code === 'rest_post_invalid_page_number') break;
+                                throw new Error(`HTTP ${res.status}`);
+                            }
+                            pages = Number(res.headers.get('X-WP-TotalPages'));
+                            posts = await res.json();
+                            if (!Array.isArray(posts)) throw new Error('Resposta inesperada do WordPress');
+                        } catch (error) {
+                            if (signal.aborted || page === 1) throw error;
+                            partial = true;
+                            break;
+                        }
+                        for (const post of posts) {
+                            const media = post?._embedded?.['wp:featuredmedia']?.[0];
+                            const src = media?.source_url;
+                            if (typeof src !== 'string' || !/^https:\/\//i.test(src) || seen.has(src)) continue;
+                            if (![src, media.media_details?.file, media.media_details?.original_image].some(isCoverFilename)) continue;
+                            seen.add(src);
+                            const raw = post.title?.rendered;
+                            const title = typeof raw === 'string' ? new DOMParser().parseFromString(raw, 'text/html').body.textContent.trim() : '';
+                            covers.push({ url: src, title: title || extractImageName(src) });
+                        }
+                        if (posts.length < 25 || (pages && page >= pages)) break;
+                    }
+                    return { covers, partial };
+                } catch (error) {
+                    if (signal.aborted) throw error;
+                    lastError = error;
+                }
+            }
+            throw lastError;
+        }
+
+        async function refreshGalleryCovers(portal) {
+            const status = document.getElementById('galleryLiveStatus');
+            const host = LIVE_GALLERY_HOSTS[portal];
+            if (!host) { status.textContent = ''; return; }
+            const controller = new AbortController();
+            galleryRefreshController = controller;
+            const { signal } = controller;
+            status.textContent = 'Buscando capas recentes…';
+            try {
+                const { covers, partial } = await readRecentCoverPosts(host, signal);
+                if (signal.aborted || portal !== activePortal) return;
+                const wasRecent = galleryActiveCat === LIVE_GALLERY_CATEGORY;
+                if (partial && !covers.length) throw new Error('Consulta parcial sem resultados');
+                liveGalleryEntries.set(portal, covers);
+                status.textContent = covers.length
+                    ? `${covers.length} ${covers.length === 1 ? 'capa recente encontrada' : 'capas recentes encontradas'}${partial ? ' (consulta parcial)' : ''}.`
+                    : 'Nenhuma imagem destacada com “capa” no nome entre os artigos consultados.';
+                if (covers.length) galleryActiveCat = LIVE_GALLERY_CATEGORY;
+                else if (wasRecent) galleryActiveCat = getGalleryCategories()[0]?.id || null;
+                renderGallerySidebar();
+                const term = document.getElementById('galleryArticleSearch').value.trim();
+                if (term) searchGalleryImages(term);
+                else renderGalleryImages(galleryActiveCat);
+            } catch (error) {
+                if (signal.aborted || portal !== activePortal) return;
+                status.textContent = getGalleryCategories().length
+                    ? 'Não foi possível atualizar. Exibindo as capas já disponíveis.'
+                    : 'Não foi possível consultar o portal. Você ainda pode enviar uma capa manualmente.';
+            }
+        }
         function getGalleryCategories() { return getPortalGallery().categories; }
         function getGalleryImages()     { return getPortalGallery().images; }
 
         let galleryActiveCat = null; // não usado mas mantido por compat
 
         function openGallery() {
+            galleryRefreshController?.abort();
+            document.getElementById('galleryImageScroll').scrollTop = 0;
             const portalNames = {
                 manualweb:'Manual da Web', insiderbits:'Insider Bits', bemotors:'BeMotors',
                 credhelper:'Credhelper', guiadin:'Guiadin', stonkstutors:'Stonkstutors',
@@ -7505,9 +7610,11 @@
                 document.getElementById('galleryImageGrid').innerHTML =
                     '<p style="color:#aaa;text-align:center;padding:40px;grid-column:1/-1;">Nenhuma imagem para este portal.<br>Use o Gallery Editor para adicionar.</p>';
             }
+            refreshGalleryCovers(activePortal);
         }
 
         function closeGallery() {
+            galleryRefreshController?.abort();
             document.getElementById('galleryModal').style.display = 'none';
             const pv = document.getElementById('galleryPreview');
             if (pv) pv.style.display = 'none';
@@ -7657,13 +7764,17 @@
         function renderGalleryImages(catId) {
             const grid = document.getElementById('galleryImageGrid');
             grid.innerHTML = '';
+            const scroll = document.getElementById('galleryImageScroll');
+            scroll.scrollTop = 0;
+            scroll.onscroll = null;
+            document.getElementById('galleryLoadingHint').style.display = 'none';
             const imgs = getGalleryImages()[catId] || [];
             if (!imgs.length) {
                 grid.innerHTML = '<p style="color:#aaa; text-align:center; padding:40px;">Nenhuma imagem nesta categoria ainda.</p>';
                 galleryLoadState = { catId: null, order: [], loaded: 0 };
                 return;
             }
-            galleryLoadState = { catId, order: shuffleArray(imgs), loaded: 0 };
+            galleryLoadState = { catId, order: catId === LIVE_GALLERY_CATEGORY ? imgs : shuffleArray(imgs), loaded: 0 };
             loadMoreGalleryImages();
 
             const scrollEl = document.getElementById('galleryImageScroll');
@@ -7769,6 +7880,7 @@
                                 style="width:100%; box-sizing:border-box; padding:10px 14px 10px 34px; border:2px solid #e0e7ff; border-radius:10px; font-size:13px; font-family:inherit; outline:none;">
                         </div>
                         <div id="galleryImageScroll" style="flex:1; overflow-y:auto; padding:16px;">
+                            <p id="galleryLiveStatus" role="status" style="font-size:12px; color:#535b75; margin:0 0 8px;"></p>
                             <p id="gallerySearchLabel" style="display:none; font-size:12px; color:#667eea; font-weight:700; margin:0 0 12px;"></p>
                             <div id="galleryImageGrid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:12px;"></div>
                             <p id="galleryLoadingHint" style="display:none; text-align:center; color:#aaa; font-size:12px; padding:14px; grid-column:1/-1;">Carregando mais...</p>
