@@ -1606,6 +1606,38 @@
             color: white !important;
         }
         
+        #notificationContainer {
+            max-width: calc(100vw - 40px);
+        }
+        #notificationContainer .notification {
+            min-width: min(220px, 100%);
+            cursor: pointer;
+        }
+        #notificationContainer .notification.hide {
+            animation: none !important;
+            pointer-events: none;
+        }
+        .notification-message {
+            min-width: 0;
+            overflow-wrap: anywhere;
+        }
+        .notification-close {
+            flex: 0 0 32px;
+            width: 32px;
+            height: 32px;
+            align-self: flex-start;
+            display: grid;
+            place-items: center;
+            padding: 0;
+            border: 0;
+            border-radius: 8px;
+            background: rgba(0,0,0,0.15);
+            color: white;
+            cursor: pointer;
+        }
+        .notification-close:hover { background: rgba(0,0,0,0.3); }
+        .notification-close:focus-visible { outline: 2px solid white; outline-offset: -3px; }
+
         .filename-section {
             margin-bottom: 30px;
         }
@@ -2100,6 +2132,88 @@
             border-color: #667eea !important;
             box-shadow: 0 6px 20px rgba(102, 126, 234, 0.2) !important;
         }
+
+        /* Painel de edição: duas colunas apenas quando ambas cabem. */
+        .page-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 860px) 402px;
+        }
+        .page-layout > .container, #previewSection, #floatingSubpanel { min-width: 0; }
+        .side-tools-column { width: 100%; }
+        #floatingSubpanel {
+            width: calc(100% - 82px) !important;
+            max-height: calc(100vh - 40px);
+            max-height: calc(100dvh - 40px);
+            overflow-y: auto;
+            scrollbar-width: thin;
+            overscroll-behavior-y: contain;
+        }
+        #floatingSubpanel input[type="range"] { min-width: 0; width: 0; }
+        #floatingSubpanel select { padding-right: 36px !important; background-position: right 10px center; }
+        #floatingSubpanel .brush-tools-row, #floatingSubpanel .shape-buttons {
+            display: grid !important;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 6px !important;
+        }
+        #floatingSubpanel :is(.brush-tool-btn, .brush-color-display, .shape-btn) {
+            width: 100%; min-width: 0; min-height: 44px; height: 44px; padding: 0;
+        }
+        #floatingSubpanel .editor-panel-actions {
+            position: sticky; bottom: -20px;
+            display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;
+            background: #fff; z-index: 2;
+            margin: 2px -18px -20px; padding: 10px 12px;
+            border-top: 1px solid #e0e7ff;
+        }
+        .editor-panel-actions .action-btn {
+            width: 100%; min-width: 0; max-width: none; min-height: 44px; margin: 0;
+            justify-content: center; padding: 8px 4px; gap: 5px; font-size: 13px;
+        }
+        #canvasModeIndicator:not([hidden]) {
+            display: block;
+            margin: 0 0 8px;
+            padding: 8px 10px;
+            border-radius: 10px;
+            background: #eff2ff; color: #283363;
+            font-size: 13px; font-weight: 600; line-height: 1.4;
+            overflow-wrap: anywhere;
+        }
+        .canvas-wrapper { max-width: 100%; }
+
+        @media (max-width: 1080px) {
+            body { padding: 12px; }
+            .page-layout { grid-template-columns: minmax(0, 860px); gap: 10px; }
+            .page-layout > .container { grid-row: 2; padding: clamp(12px, 4vw, 25px); }
+            .side-tools-column {
+                grid-row: 1; position: static; max-height: none; justify-content: center;
+            }
+            .narrow-tools-column { flex-flow: row wrap; justify-content: center; gap: 6px; }
+            .narrow-tools-column .fab-add { width: 44px; height: 44px; }
+            .narrow-tools-column .fab-add::after { display: none; }
+            #previewSection .floating-toolbar {
+                flex-flow: row wrap; justify-content: center; gap: 5px;
+                padding: 6px; border-radius: 12px; margin-bottom: 8px;
+            }
+            #previewSection .floating-toolbar .edit-btn { width: 44px; height: 44px; }
+            #previewSection .floating-toolbar .tooltip,
+            #previewSection .floating-toolbar-label,
+            #previewSection .floating-toolbar-divider { display: none; }
+            #previewSection .canvas-container { padding: 8px; margin-bottom: 12px; }
+            #previewSection #canvas { width: auto; max-height: 55vh; max-height: 55svh; }
+            #previewSection #floatingSubpanel {
+                width: 100% !important; max-height: none; overflow: visible;
+                padding: 12px; gap: 10px;
+            }
+            #floatingSubpanel .editor-panel-actions {
+                bottom: 0; margin: 2px -12px -12px;
+                padding-bottom: max(10px, env(safe-area-inset-bottom));
+                border-radius: 0 0 18px 18px;
+            }
+        }
+        @media (max-width: 480px) {
+            body { padding: 8px; }
+            .portal-selection .portal-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+        }
     </style>
 </head>
 <body>
@@ -2119,7 +2233,7 @@
                 </label>
             </div>
             <p style="text-align:right; font-size:11px; color:#bbb; margin-bottom:10px;">Clique com o botão direito num portal para marcar como favorito</p>
-            <div style="display:grid; grid-template-columns:repeat(5, 1fr); gap:8px; margin-bottom:16px;">
+            <div class="portal-grid" style="display:grid; grid-template-columns:repeat(5, 1fr); gap:8px; margin-bottom:16px;">
                 <button type="button" class="portal-btn" data-portal="bemotors" onclick="selectPortal('bemotors')">BeMotors</button>
                 <button type="button" class="portal-btn" data-portal="credhelper" onclick="selectPortal('credhelper')">Credhelper</button>
                 <button type="button" class="portal-btn" data-portal="guiadin" onclick="selectPortal('guiadin')">Guiadin</button>
@@ -2141,10 +2255,6 @@
                     <h3 class="upload-title" id="customFrameBoxTitle">Moldura Personalizada (PNG)</h3>
                     <p class="upload-description">Clique ou arraste o PNG aqui<br><small>Substitui a moldura padrão nesta sessão</small></p>
                     <input type="file" id="customFrameUploadInput" accept="image/png">
-                </div>
-                <div style="text-align:center;margin-top:10px;">
-                    <button type="button" class="portal-btn" onclick="document.getElementById('overlayFrameUploadInput').click()">Adicionar segunda moldura (PNG)</button>
-                    <input type="file" id="overlayFrameUploadInput" accept="image/png" onchange="loadCustomFrameFile(this, true)">
                 </div>
                 <div style="text-align:center; margin-top:8px;">
                     <button type="button" onclick="clearCustomFrame()" style="background:none; border:none; color:#dc2626; font-size:12px; cursor:pointer; font-family:inherit; text-decoration:underline;">
@@ -2317,6 +2427,7 @@
                             <p id="coverFileName" style="font-family:monospace; font-size:14px; color:#667eea; font-weight:700;"></p>
                             <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
                                 <button class="action-btn download-btn" onclick="closeCoverModal()" style="margin:0;"><span data-icon="check"></span> Salvar</button>
+                                <button type="button" class="action-btn" onclick="document.getElementById('coverUploadInput').value=''; document.getElementById('coverUploadInput').click()" style="margin:0;"><span data-icon="camera"></span> Trocar arquivo</button>
                                 <button class="action-btn" onclick="removeCover()" style="margin:0; background:#fee2e2; color:#dc2626; border-color:#fca5a5;"><span data-icon="trash"></span> Remover</button>
                             </div>
                         </div>
@@ -2382,6 +2493,11 @@
                 <button type="button" class="action-btn" onclick="openFilenameModal()" style="margin:0; font-size:13px; padding:8px 14px;"><span data-icon="edit"></span> Nomenclatura</button>
             </h3>
 
+            <div id="bulkResultsActions" style="display:none;gap:8px;justify-content:center;align-items:center;flex-wrap:wrap;margin-bottom:14px;">
+                <button type="button" class="portal-btn" id="toggleResultSelection" onclick="toggleBulkResultSelection()">Selecionar várias</button>
+                <button type="button" class="portal-btn" id="deleteSelectedResults" hidden onclick="bulkDeleteResults(false)" style="color:#b91c1c;">Excluir selecionadas</button>
+                <button type="button" class="portal-btn" onclick="bulkDeleteResults(true)" style="color:#b91c1c;">Excluir todas</button>
+            </div>
             <div id="pdfResultsGrid" style="display:flex; flex-wrap:wrap; gap:18px; justify-content:center;" ondragover="event.preventDefault();" ondrop="if(event.target===this){event.preventDefault(); const fromIdx = pdfResults.findIndex(x => x._uid === _draggedResultUid); if (fromIdx > -1) movePdfResult(fromIdx, pdfResults.length - 1);}"></div>
             <div style="display:flex; gap:16px; justify-content:center; margin-top:24px; flex-wrap:wrap;">
                 <button class="action-btn download-btn" onclick="downloadAllPdfResults()"><span data-icon="download"></span> Baixar Tudo (ZIP)</button>
@@ -2399,21 +2515,13 @@
             </div>
             <div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
                 <button class="portal-btn" type="button" onclick="document.getElementById('customFrameUploadInput').click()">Trocar moldura (PNG)</button>
-                <button class="portal-btn" type="button" onclick="document.getElementById('overlayFrameUploadInput').click()">Adicionar segunda moldura</button>
+                <button class="portal-btn" id="applyPngToAll" type="button" hidden onclick="applyAppearanceToBatch('frame')">Aplicar moldura a todas as imagens</button>
                 <button class="portal-btn" type="button" onclick="clearCustomFrame()">Usar moldura do portal</button>
             </div>
             <div id="frameSelector" style="text-align:center; font-weight:700; color:#191e31; margin-bottom:16px; font-size:15px;"></div>
 
+            <div id="canvasModeIndicator" role="status" hidden></div>
             <div class="canvas-container">
-                <!-- Indicador de modo ativo — segue o mouse -->
-            <div id="canvasModeIndicator" style="
-                position:fixed; z-index:9999;
-                background:rgba(25,30,49,0.88); color:white; border-radius:20px;
-                padding:7px 16px; font-size:12px; font-weight:700; letter-spacing:.04em;
-                backdrop-filter:blur(4px); pointer-events:none;
-                white-space:nowrap; box-shadow:0 4px 16px rgba(0,0,0,0.3);
-                opacity:0; transition:opacity 0.3s ease; left:-9999px; top:-9999px;
-            "></div>
             <div class="canvas-wrapper">
                     <canvas id="canvas"></canvas>
                     <div class="crop-overlay" id="cropOverlay"></div>
@@ -2498,7 +2606,7 @@
                     </div>
                     <div>
                         <label style="font-size:12px; font-weight:700; color:#191e31;">Cor</label>
-                        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:6px;">
+                        <div class="brush-tools-row" style="margin-top:6px;">
                             <div class="brush-color-display" id="brushColorDisplay"></div>
                             <button type="button" class="brush-tool-btn" id="brushEyedropperBtn" onclick="activateBrushEyedropper()" title="Conta-gotas"><span data-icon="palette"></span></button>
                             <button type="button" class="brush-tool-btn" id="eraserBtn" onclick="toggleEraser()" title="Borracha"><span data-icon="eraser"></span></button>
@@ -2556,11 +2664,12 @@
                     <div class="color-display" id="colorDisplay" style="width:38px; height:38px; flex-shrink:0;"></div>
                     <input type="text" id="colorInput" class="color-input" placeholder="#FFFFFF" maxlength="7" value="#FFFFFF" style="font-size:13px; padding:8px; min-width:90px; flex:1;">
                     <button type="button" class="eyedropper-btn" id="eyedropperBtn" onclick="activateEyedropper()" style="padding:8px 12px; font-size:13px; flex-shrink:0; white-space:nowrap;"><span data-icon="palette" data-icon-size="14"></span> Cor</button>
+                    <button type="button" class="portal-btn" onclick="applyAppearanceToBatch('background')" style="width:100%;">Aplicar a todas as imagens</button>
                 </div>
             </div>
             <!-- Slot de troca de imagem (edit banner) -->
             <div id="subSlotUploads" style="border-top:2px solid #e0e7ff; padding-top:12px; margin-top:4px;"></div>
-            <div style="border-top:2px solid #e0e7ff; padding-top:14px; margin-top:4px; display:flex; flex-direction:column; gap:10px;">
+            <div class="editor-panel-actions">
                 <button class="action-btn download-btn" onclick="closeEditMode()" style="margin:0;">
                     <span data-icon="check"></span> Salvar
                 </button>
@@ -2875,7 +2984,8 @@
             isCustomFrame = Boolean(config);
             document.getElementById('customFrameBox').classList.toggle('has-file', isCustomFrame);
             document.getElementById('customFrameBoxTitle').textContent = !config ? 'Moldura Personalizada (PNG)' :
-                config.overlay ? 'Duas molduras personalizadas' : 'Moldura personalizada carregada';
+                'Moldura personalizada carregada';
+            updateBatchFrameButton();
         }
 
         function assignFrameArt(index, img) {
@@ -2886,7 +2996,7 @@
             detectTransparentArea(index);
         }
 
-        async function loadCustomFrameFile(input, addOverlay = false) {
+        async function loadCustomFrameFile(input) {
             const file = input.files[0];
             input.value = '';
             if (!file || frameChangePending || editingBusy || isProcessingPdf) return;
@@ -2896,27 +3006,11 @@
                 if (file.type !== 'image/png' && !/\.png$/i.test(file.name)) throw new Error('Selecione um arquivo PNG.');
                 url = URL.createObjectURL(file);
                 const image = await loadImageFromDataUrl(url);
-                let config = { base: image, overlay: null, rawFrameImage: image };
-                if (addOverlay) {
-                    const base = customFrameStash?.base;
-                    if (!base) throw new Error('Carregue a primeira moldura PNG antes de adicionar a segunda.');
-                    if (base.naturalWidth !== image.naturalWidth || base.naturalHeight !== image.naturalHeight) {
-                        throw new Error(`A segunda moldura deve ter ${base.naturalWidth} × ${base.naturalHeight} px.`);
-                    }
-                    const composite = document.createElement('canvas');
-                    composite.width = base.naturalWidth;
-                    composite.height = base.naturalHeight;
-                    const ctx = composite.getContext('2d');
-                    ctx.drawImage(base, 0, 0);
-                    ctx.drawImage(image, 0, 0);
-                    const pixels = ctx.getImageData(0, 0, composite.width, composite.height).data;
-                    if (!pixels.some((value, i) => i % 4 === 3 && value < 180)) throw new Error('As duas camadas juntas precisam deixar uma área transparente para a imagem.');
-                    config = { base, overlay: image, rawFrameImage: composite };
-                }
+                const config = { rawFrameImage: image };
                 setCustomFrameConfig(config);
                 frames.forEach((f, i) => assignFrameArt(i, config.rawFrameImage));
                 checkAllImagesReady();
-                showNotification(addOverlay ? 'Segunda moldura aplicada sobre a primeira.' : 'Moldura personalizada aplicada!', 'success');
+                showNotification('Moldura personalizada aplicada!', 'success');
             } catch (err) {
                 showNotification(err.message || 'Não foi possível abrir o PNG.', 'error');
             } finally {
@@ -2948,13 +3042,15 @@
             notification.innerHTML = `
                 <div class="notification-icon">${ICON(iconName, 16)}</div>
                 <div class="notification-message">${message}</div>
+                <button type="button" class="notification-close" aria-label="Fechar aviso" title="Fechar aviso">${ICON('close', 18)}</button>
             `;
+            notification.addEventListener('click', () => hideNotification(notificationId));
             
             container.appendChild(notification);
             activeNotifications.add(notificationId);
             
             setTimeout(() => {
-                notification.classList.add('show');
+                if (!notification.classList.contains('hide')) notification.classList.add('show');
             }, 10);
             
             const timeoutId = setTimeout(() => {
@@ -2968,7 +3064,7 @@
 
         function hideNotification(notificationId) {
             const notification = document.getElementById(notificationId);
-            if (!notification) return;
+            if (!notification || notification.classList.contains('hide')) return;
             
             const timeoutId = notificationTimeoutIds.get(notificationId);
             if (timeoutId) {
@@ -3360,7 +3456,10 @@
         }
 
         function detectTransparentArea(index) {
-            const frameImage = frames[index].frameImage;
+            frames[index].transparentArea = getTransparentArea(frames[index].frameImage);
+        }
+
+        function getTransparentArea(frameImage) {
             if (!frameImage) return;
             
             const tempCanvas = document.createElement('canvas');
@@ -3386,7 +3485,7 @@
             }
             
             const margin = 3;
-            frames[index].transparentArea = {
+            return {
                 x: Math.max(0, minX - margin),
                 y: Math.max(0, minY - margin),
                 width: Math.min(tempCanvas.width, maxX - minX + margin * 2),
@@ -3395,6 +3494,10 @@
         }
 
         function extractDominantColor(img, index) {
+            frames[index].dominantColor = measureDominantColor(img);
+        }
+
+        function measureDominantColor(img) {
             const tempCanvas = document.createElement('canvas');
             const tempCtx = tempCanvas.getContext('2d');
             tempCanvas.width = tempCanvas.height = 50;
@@ -3413,9 +3516,7 @@
                 }
             }
             
-            if (count > 0) {
-                frames[index].dominantColor = rgbToHex(Math.floor(r/count), Math.floor(g/count), Math.floor(b/count));
-            }
+            return count > 0 ? rgbToHex(Math.floor(r/count), Math.floor(g/count), Math.floor(b/count)) : '#FFFFFF';
         }
 
         function rgbToHex(r, g, b) {
@@ -3517,9 +3618,12 @@
         // renderFinalCanvas usa frame.rawFrameImage diretamente com getColoredFrame()
         // para garantir que a cor atual sempre seja aplicada — sem depender de cache
         function renderFinalCanvas() {
-            if (frames.length === 0) return;
+            drawFrameComposition(document.getElementById('canvas'), frames.slice(0, frameCount));
+        }
 
-            const canvas = document.getElementById('canvas');
+        function drawFrameComposition(canvas, frames) {
+            if (frames.length === 0) return;
+            const frameCount = frames.length;
             const ctx = canvas.getContext('2d');
 
             const firstFrameOrientation = frames[0].frameOrientation || 'vertical';
@@ -4193,7 +4297,7 @@
             document.getElementById('resizeSlider').value = Math.round(scale * 100);
             document.getElementById('resizeValue').textContent = `${Math.round(scale * 100)}%`;
             
-            setCanvasModeIndicator('⤢ Redimensionar — use o slider ao lado');
+            setCanvasModeIndicator('⤢ Redimensionar — ajuste a escala no painel');
         }
 
         function deactivateResizeMode() {
@@ -4261,7 +4365,7 @@
             canvas.addEventListener('mouseup', endBrushDrawing);
             canvas.addEventListener('mouseleave', endBrushDrawing);
             
-            setCanvasModeIndicator(`${ICON('brush')} Pincel — configure no painel ao lado`);
+            setCanvasModeIndicator(`${ICON('brush')} Pincel — ajuste o tamanho, a cor e a forma no painel`);
             document.getElementById('canvas').classList.add('resize-mode');
         }
 
@@ -4819,64 +4923,11 @@
             overlay.style.display = 'none';
         }
 
-        // ── Mode indicator state ──
-        let _modeText   = null;
-        let _modeHide   = null;   // timer para esconder após 2s
-        let _modeShow   = null;   // timer para reaparecer 1s após parar
-        let _modeMoving = false;  // está em movimento?
-        let _modeMoveT  = null;   // debounce "parou de mover"
-
-        function _modeMouseMove(e) {
-            const el = document.getElementById('canvasModeIndicator');
-            if (!el || !_modeText) return;
-            // Posiciona
-            const W = el.offsetWidth || 220;
-            const x = e.clientX + 20;
-            const y = e.clientY;
-            el.style.left = (x + W > window.innerWidth - 10 ? e.clientX - W - 16 : x) + 'px';
-            el.style.top  = y + 'px';
-            // Se já passou os 2s iniciais, esconde ao mover
-            if (!_modeHide) {
-                el.style.opacity = '0';
-                clearTimeout(_modeShow);
-                // Reaparece 1s após parar
-                clearTimeout(_modeMoveT);
-                _modeMoveT = setTimeout(() => {
-                    if (_modeText) el.style.opacity = '1';
-                }, 1000);
-            }
-        }
-
+        // A dica acompanha a área de edição, sem flutuar sobre os botões.
         function setCanvasModeIndicator(text) {
             const el = document.getElementById('canvasModeIndicator');
-            if (!el) return;
-            // Limpa timers
-            clearTimeout(_modeHide); _modeHide = null;
-            clearTimeout(_modeShow);
-            clearTimeout(_modeMoveT);
-
-            if (!text) {
-                _modeText = null;
-                el.style.opacity = '0';
-                document.removeEventListener('mousemove', _modeMouseMove);
-                return;
-            }
-
-            _modeText = text;
-            el.innerHTML = text;
-            // Posição inicial próxima ao centro
-            el.style.left = (window.innerWidth / 2) + 'px';
-            el.style.top  = (window.innerHeight / 2) + 'px';
-            el.style.opacity = '1';
-
-            document.removeEventListener('mousemove', _modeMouseMove);
-            document.addEventListener('mousemove', _modeMouseMove);
-
-            // Esconde após 2s e libera o comportamento de mover
-            _modeHide = setTimeout(() => {
-                el.style.opacity = '0';
-                _modeHide = null; // agora o mousemove pode controlar
-            }, 2000);
+            el.hidden = !text;
+            el.innerHTML = text || '';
         }
 
         function deactivateAllModes() {
@@ -5489,6 +5540,97 @@
         let editingBusy = false;
         let preEditConfig = null;
 
+        function updateBatchFrameButton() {
+            document.getElementById('applyPngToAll').hidden = !customFrameStash || editingPdfResultIndex === null || pdfResults.length < 2;
+        }
+
+        function captureResultSlot(f) {
+            return {
+                offset: { ...f.imageOffset }, scale: f.imageScale, fitMode: f.fitMode,
+                bgMode: f.bgMode, customColor: f.customColor,
+                brushDataUrl: f.brushCanvas ? f.brushCanvas.toDataURL('image/png') : null
+            };
+        }
+
+        async function applyAppearanceToBatch(kind) {
+            if (editingBusy || frameChangePending || isProcessingPdf || !frames.length) return;
+            const useFrame = kind === 'frame';
+            const config = customFrameStash;
+            const color = frames[activeFrameIndex]?.customColor;
+            if (useFrame ? !config : !/^#[0-9a-f]{6}$/i.test(color || '')) return;
+            editingBusy = true;
+            const currentIndex = editingPdfResultIndex;
+            const batch = [...pdfResults];
+            const frameLoads = new Map();
+            const areas = new Map();
+            function loadFrame(url) {
+                if (!frameLoads.has(url)) frameLoads.set(url, defaultFrameCache[url] || new Promise((resolve, reject) => {
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    img.onload = () => resolve(img);
+                    img.onerror = () => reject(new Error('Moldura não encontrada: ' + url.split('/').pop()));
+                    img.src = url;
+                }));
+                return frameLoads.get(url);
+            }
+            function withAppearance(f, art) {
+                if (!areas.has(art)) areas.set(art, getTransparentArea(art));
+                return { ...f, rawFrameImage: art, frameOrientation: art.width > art.height ? 'horizontal' : 'vertical',
+                    transparentArea: areas.get(art), ...(!useFrame ? { bgMode: 'custom', customColor: color } : {}) };
+            }
+            try {
+                const patches = [];
+                for (const [i, result] of batch.entries()) {
+                    const frameConfig = useFrame ? config : (i === currentIndex ? config : result.frameConfig);
+                    const portal = i === currentIndex ? activePortal : result.portal;
+                    const links = PORTALS[portal] || PORTALS.manualweb;
+                    const current = i === currentIndex;
+                    const liveFrames = frames.slice(0, frameCount);
+                    const images = current ? liveFrames.map(f => f.uploadedImage.src) : result.images;
+                    const slots = [];
+                    for (const [j, src] of images.entries()) {
+                        const uploadedImage = current ? liveFrames[j].uploadedImage : await loadImageFromDataUrl(src);
+                        const art = frameConfig?.rawFrameImage || (current ? liveFrames[j].rawFrameImage :
+                            await loadFrame(uploadedImage.width > uploadedImage.height ? links.h : links.v));
+                        const state = result.slotStates?.[j];
+                        const f = current ? liveFrames[j] : {
+                            ...createEmptyFrame(), uploadedImage,
+                            dominantColor: useFrame && (!state || state.bgMode === 'dominant') ? measureDominantColor(uploadedImage) : '#FFFFFF',
+                            ...(state ? { imageOffset: state.offset, imageScale: state.scale, fitMode: state.fitMode,
+                                bgMode: state.bgMode, customColor: state.customColor,
+                                brushCanvas: state.brushDataUrl ? await loadImageFromDataUrl(state.brushDataUrl) : null } : {})
+                        };
+                        slots.push(withAppearance(f, art));
+                    }
+                    const canvas = document.createElement('canvas');
+                    drawFrameComposition(canvas, slots);
+                    const flattened = document.createElement('canvas');
+                    flattened.width = canvas.width; flattened.height = canvas.height;
+                    const ctx = flattened.getContext('2d');
+                    ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.drawImage(canvas, 0, 0);
+                    const blob = await new Promise(resolve => flattened.toBlob(resolve, 'image/jpeg', 1));
+                    if (!blob) throw new Error('Não foi possível gerar uma das imagens.');
+                    const slotStates = slots.map((f, j) => current ? captureResultSlot(f) : {
+                        offset: f.imageOffset, scale: f.imageScale, fitMode: f.fitMode, bgMode: f.bgMode,
+                        customColor: f.customColor, brushDataUrl: result.slotStates?.[j]?.brushDataUrl || null
+                    });
+                    patches.push({ result, update: { images, portal, frameConfig, blob, dataUrl: flattened.toDataURL('image/jpeg', 1), slotStates } });
+                }
+                if (editingPdfResultIndex !== currentIndex || batch.length !== pdfResults.length || batch.some((r, i) => r !== pdfResults[i])) return;
+                if (!useFrame) {
+                    pushEditHistory();
+                    frames.forEach(f => { f.bgMode = 'custom'; f.customColor = color; });
+                    loadFrameSettings();
+                }
+                for (const { result, update } of patches) Object.assign(result, update);
+                renderFinalCanvas();
+                if (currentIndex === null) renderPdfResultsGrid();
+                showNotification(useFrame ? 'Moldura aplicada a todas as imagens de corpo.' : 'Cor aplicada a todas as imagens de corpo.', 'success');
+            } catch (err) {
+                showNotification(err?.message || 'Não foi possível atualizar o lote.', 'error');
+            } finally { editingBusy = false; }
+        }
+
         function showPdfResultsPreview(results, count) {
             pdfResults = results;
             // Não avança o imageNumber automaticamente — o usuário controla o número inicial
@@ -5629,7 +5771,43 @@
             hero.style.display = (pdfResults.length || coverImage) ? 'none' : 'flex';
         }
 
+        let selectingResults = false;
+        const selectedResults = new Set();
+
+        function updateBulkResultActions() {
+            for (const result of selectedResults) if (!pdfResults.includes(result)) selectedResults.delete(result);
+            if (!pdfResults.length) selectingResults = false;
+            document.getElementById('bulkResultsActions').style.display = pdfResults.length ? 'flex' : 'none';
+            const toggle = document.getElementById('toggleResultSelection');
+            toggle.textContent = selectingResults ? 'Cancelar seleção' : 'Selecionar várias';
+            toggle.setAttribute('aria-pressed', String(selectingResults));
+            const deleteButton = document.getElementById('deleteSelectedResults');
+            deleteButton.hidden = !selectingResults;
+            deleteButton.disabled = !selectedResults.size;
+            deleteButton.textContent = selectedResults.size ? `Excluir selecionadas (${selectedResults.size})` : 'Excluir selecionadas';
+        }
+
+        function toggleBulkResultSelection() {
+            if (editingBusy || isProcessingPdf) return;
+            selectingResults = !selectingResults;
+            selectedResults.clear();
+            renderPdfResultsGrid();
+        }
+
+        function bulkDeleteResults(all) {
+            if (editingBusy || frameChangePending || isProcessingPdf) return;
+            const targets = pdfResults.filter(r => all || selectedResults.has(r));
+            if (!targets.length) return;
+            if (!window.confirm(`Excluir ${targets.length} ${targets.length === 1 ? 'imagem de corpo' : 'imagens de corpo'}? A capa não será excluída.`)) return;
+            const remove = new Set(targets);
+            pdfResults = pdfResults.filter(r => !remove.has(r));
+            selectingResults = false;
+            selectedResults.clear();
+            renderPdfResultsGrid();
+        }
+
         function renderPdfResultsGrid() {
+            updateBulkResultActions();
             updateWelcomeHeroVisibility();
             // Some o painel inteiro quando não sobra nenhuma moldura nem capa (ex: apagou a última) —
             // sem isso o painel ficava visível e vazio.
@@ -5655,8 +5833,8 @@
                 const card = document.createElement('div');
                 card.className = 'results-card card-enter';
                 card.dataset.uid = r._uid;
-                card.draggable = true;
-                card.title = 'Arraste para reordenar';
+                card.draggable = !selectingResults;
+                card.title = selectingResults ? 'Marque para excluir' : 'Arraste para reordenar';
                 card.addEventListener('animationend', () => card.classList.remove('card-enter'), { once: true });
 
                 card.addEventListener('dragstart', (e) => {
@@ -5733,6 +5911,20 @@
                 name.dataset.index = idx;
                 name.textContent = r.name + '.jpg';
                 card.appendChild(name);
+                if (selectingResults) {
+                    const label = document.createElement('label');
+                    label.style.cssText = 'display:flex;justify-content:center;align-items:center;gap:6px;margin:8px 0;cursor:pointer;';
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.checked = selectedResults.has(r);
+                    checkbox.setAttribute('aria-label', 'Selecionar ' + r.name);
+                    checkbox.onchange = () => {
+                        if (checkbox.checked) selectedResults.add(r); else selectedResults.delete(r);
+                        updateBulkResultActions();
+                    };
+                    label.append(checkbox, 'Selecionar');
+                    card.appendChild(label);
+                }
 
                 const actions = document.createElement('div');
                 actions.className = 'results-card-actions';
@@ -5755,7 +5947,7 @@
                 delBtn.type = 'button'; delBtn.className = 'image-slot-btn results-btn results-btn-danger';
                 delBtn.title = 'Remover';
                 delBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg><span>Excluir</span>';
-                delBtn.onclick = () => { const i = pdfResults.findIndex(x => x._uid === r._uid); pdfResults.splice(i, 1); renderPdfResultsGrid(); };
+                delBtn.onclick = () => { const i = pdfResults.indexOf(r); if (i < 0 || editingBusy || frameChangePending || isProcessingPdf) return; pdfResults.splice(i, 1); renderPdfResultsGrid(); };
                 actions.appendChild(delBtn);
 
                 card.appendChild(actions);
@@ -5850,7 +6042,8 @@
 
             document.getElementById('pdfResultsSection').style.display = 'none';
             updateResultNavigation();
-            document.querySelector('.canvas-container').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const editAnchor = compactEditorLayout.matches ? '#floatingToolbar' : '.canvas-container';
+            document.querySelector(editAnchor).scrollIntoView({ behavior: 'smooth', block: compactEditorLayout.matches ? 'start' : 'center' });
             } catch (err) {
                 cancelEditPdfResult(false);
                 showNotification(err.message || 'Não foi possível reabrir a edição.', 'error');
@@ -6071,42 +6264,44 @@
         async function downloadAllPdfResults() {
             if (!pdfResults.length && !coverImage) return;
             renamePdfResults();
-            // Atualiza o nome da capa com o código atual no momento do download
-            if (coverImage) coverImage.name = getCoverFileName();
+            const cover = coverImage;
+            const coverName = getCoverFileName() + '.jpg';
             const title = (getArticleTitle() || 'molduras').replace(/[^a-zA-Z0-9À-ÿ _-]/g, '').trim() || 'molduras';
+            const results = pdfResults.map(r => ({ name: r.name, blob: r.blob }));
             showNotification(`Gerando ZIP "${title}.zip"...`, 'info', 3000);
-            const zip = new JSZip();
-            pdfResults.forEach(r => zip.file(`${r.name}.jpg`, r.blob));
-            // Capa: usa blob se disponível; senão tenta buscar (direto ou via proxy de imagens)
-            if (coverImage) {
-                const coverName = getCoverFileName() + '.jpg';
-                let blob = coverImage.blob;
-                if (!blob && coverImage.dataUrl) {
-                    blob = await fetchImageBlob(coverImage.dataUrl);
-                    if (blob) coverImage.blob = blob;
-                }
-                if (blob) {
-                    zip.file(coverName, blob);
-                } else if (coverImage.dataUrl) {
-                    // Nem o fetch direto nem o proxy de imagens conseguiram uma cópia —
-                    // abre a imagem numa aba para o usuário salvar manualmente.
-                    zip.file(coverName.replace('.jpg', '-link.txt'), coverImage.dataUrl);
-                    window.open(coverImage.dataUrl, '_blank');
-                    showNotification('A capa não pôde ser incluída automaticamente no ZIP. Abri ela em outra aba — salve manualmente com "Salvar imagem como".', 'warning', 8000);
-                }
+            try {
+                const coverBlob = cover ? await getCoverBlob(cover) : null;
+                if (cover !== coverImage) return;
+                if (cover && !coverBlob) { showCoverDownloadError(); return; }
+                const zip = new JSZip();
+                results.forEach(r => zip.file(`${r.name}.jpg`, r.blob));
+                if (coverBlob) zip.file(coverName, coverBlob);
+                const zipBlob = await zip.generateAsync({ type: 'blob' });
+                saveCoverExport(zipBlob, `${title}.zip`);
+                showNotification(`"${title}.zip" com ${results.length + (coverBlob ? 1 : 0)} imagem(ns) baixado!`, 'success', 5000);
+            } catch (err) {
+                console.error(err);
+                showNotification('Não foi possível gerar o ZIP. Tente novamente.', 'warning', 6500);
             }
-            const zipBlob = await zip.generateAsync({ type: 'blob' });
-            const url = URL.createObjectURL(zipBlob);
-            const link = document.createElement('a');
-            link.download = `${title}.zip`;
-            link.href = url;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-            const total = pdfResults.length + (coverImage ? 1 : 0);
-            showNotification(`"${title}.zip" com ${total} imagem(ns) baixado!`, 'success', 5000);
         }
+
+        // Mantém os mesmos controles e estados ao mudar de tamanho de tela.
+        const compactEditorLayout = window.matchMedia('(max-width: 1080px)');
+        function positionEditorControls() {
+            const panel = document.getElementById('floatingSubpanel');
+            const toolbar = document.getElementById('floatingToolbar');
+            if (compactEditorLayout.matches) {
+                const canvasArea = document.querySelector('#previewSection .canvas-container');
+                canvasArea.before(toolbar);
+                canvasArea.after(panel);
+            } else {
+                const narrow = document.querySelector('.narrow-tools-column');
+                narrow.before(panel);
+                narrow.prepend(toolbar);
+            }
+        }
+        compactEditorLayout.addEventListener('change', positionEditorControls);
+        positionEditorControls();
 
         // ===== BARRA FLUTUANTE DE EDIÇÃO =====
         function showFloatingToolbar() {
@@ -6160,6 +6355,7 @@
         }
 
         function updateResultNavigation() {
+            updateBatchFrameButton();
             const navigation = document.getElementById('resultNavigation');
             const index = editingPdfResultIndex;
             navigation.hidden = index === null || pdfResults.length <= 1;
@@ -6460,6 +6656,9 @@
         }
 
         function resetAll() {
+            if (editingBusy || frameChangePending) return;
+            selectingResults = false;
+            selectedResults.clear();
             frameCount = 1;
             frames = [];
             selectedPortal = 'default';
@@ -6732,32 +6931,65 @@
             }
         }
 
-        // Alguns sites de origem (WordPress dos portais) não liberam CORS, então o navegador
-        // recusa ler os bytes da imagem via fetch() direto, mesmo ela abrindo normalmente.
-        // Para contornar, pedimos a imagem a um proxy de imagens (images.weserv.nl) — ele busca
-        // o arquivo no servidor dele (sem restrição de CORS de navegador) e devolve uma cópia
-        // já com o cabeçalho de CORS liberado, que aí sim conseguimos ler e baixar.
-        function toImageProxyUrl(url) {
-            const stripped = url.replace(/^https:\/\//i, 'ssl:').replace(/^http:\/\//i, '');
-            return `https://images.weserv.nl/?url=${encodeURIComponent(stripped)}`;
-        }
-
+        // Capas externas exigem uma resposta que possa ser lida pelo navegador (CORS).
         async function fetchImageBlob(url) {
-            try {
-                const r = await fetch(url);
-                if (!r.ok) throw new Error('status ' + r.status);
-                return await r.blob();
-            } catch (e) {
-                // Fetch direto falhou (provável bloqueio de CORS) — tenta via proxy de imagens,
-                // que cria uma cópia temporária da imagem com CORS liberado.
+            const candidates = [url];
+            if (/^https?:\/\//i.test(url)) {
+                candidates.push(`https://wsrv.nl/?url=${encodeURIComponent(url)}&output=jpg`);
+            }
+            for (const candidate of candidates) {
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), 8000);
                 try {
-                    const r2 = await fetch(toImageProxyUrl(url));
-                    if (!r2.ok) throw new Error('status ' + r2.status);
-                    return await r2.blob();
-                } catch (e2) {
-                    return null;
+                    const response = await fetch(candidate, { signal: controller.signal, credentials: 'omit' });
+                    if (!response.ok) continue;
+                    const source = await response.blob();
+                    const bitmap = await createImageBitmap(source);
+                    try {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = bitmap.width;
+                        canvas.height = bitmap.height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.fillStyle = '#fff';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        ctx.drawImage(bitmap, 0, 0);
+                        const jpg = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.95));
+                        if (jpg) return jpg;
+                    } finally {
+                        bitmap.close();
+                    }
+                } catch (err) {
+                    // Origem indisponível, bloqueada por CORS ou conteúdo não é uma imagem.
+                } finally {
+                    clearTimeout(timer);
                 }
             }
+            return null;
+        }
+
+        function getCoverBlob(cover) {
+            if (cover.blob) return Promise.resolve(cover.blob);
+            if (!cover.loading) {
+                cover.loading = fetchImageBlob(cover.dataUrl).then(blob => {
+                    cover.blob = blob;
+                    cover.loading = null;
+                    return blob;
+                });
+            }
+            return cover.loading;
+        }
+
+        function saveCoverExport(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const link = Object.assign(document.createElement('a'), { download: filename, href: url });
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 30000);
+        }
+
+        function showCoverDownloadError() {
+            showNotification('Não foi possível carregar a capa da galeria. Use Escolha da Capa → Trocar arquivo para enviar a capa do seu computador e tente baixar novamente.', 'warning', 10000);
         }
 
         // Alterna entre os 2 botões de escolha (Galeria/Enviar Capa) e a área de
@@ -6776,39 +7008,18 @@
         }
 
         function setCoverImageFromUrl(url) {
-            // Para URLs externas (WordPress, CDN) — usa diretamente sem converter para base64
-            // O blob é gerado via fetchImageBlob (com fallback de proxy) para o ZIP;
-            // se tudo falhar, o download individual usa a URL original
-            const name = getCoverFileName();
+            const cover = { dataUrl: url, name: getCoverFileName(), blob: null };
+            coverImage = cover;
             const thumb = document.getElementById('coverThumb');
-            const fnEl  = document.getElementById('coverFileName');
-            if (thumb)  thumb.src = url;
-            if (fnEl)   fnEl.textContent = name + '.jpg';
-            coverImage = { dataUrl: url, name, blob: null };
+            if (thumb) thumb.src = url;
             updateCoverModalUI();
-            fetchImageBlob(url).then(blob => {
-                if (coverImage && coverImage.dataUrl === url) coverImage.blob = blob;
-            });
+            updateCoverName();
             refreshCoverInResultsGrid();
+            getCoverBlob(cover);
         }
 
         function setCoverImage(dataUrl) {
-            coverImage = { dataUrl, name: getCoverFileName() };
-            const thumb = document.getElementById('coverThumb');
-            if (thumb) thumb.src = dataUrl;
-            updateCoverModalUI();
-            updateCoverName();
-            // Converte dataUrl → Blob para incluir no ZIP
-            try {
-                const byteStr = atob(dataUrl.split(',')[1]);
-                const arr = new Uint8Array(byteStr.length);
-                for (let i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i);
-                coverImage.blob = new Blob([arr], { type: 'image/jpeg' });
-            } catch(e) {
-                // Se falhar (URL externa sem base64), busca via fetchImageBlob (com fallback de proxy)
-                fetchImageBlob(dataUrl).then(b => { if (coverImage) coverImage.blob = b; });
-            }
-            refreshCoverInResultsGrid();
+            setCoverImageFromUrl(dataUrl);
         }
 
         function removeCover() {
@@ -6833,25 +7044,14 @@
         }
 
         async function downloadCover() {
-            if (!coverImage) return;
+            const cover = coverImage;
+            if (!cover) return;
             const name = getCoverFileName();
-            let blob = coverImage.blob;
-            if (!blob && coverImage.dataUrl) {
-                showNotification('Preparando cópia da capa para download...', 'info', 2500);
-                blob = await fetchImageBlob(coverImage.dataUrl);
-                if (blob) coverImage.blob = blob;
-            }
-            if (blob) {
-                // Tem blob (direto ou via cópia do proxy) — download com nome correto
-                const url = URL.createObjectURL(blob);
-                const a = Object.assign(document.createElement('a'), { download: name + '.jpg', href: url });
-                document.body.appendChild(a); a.click(); document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-            } else {
-                // Não conseguiu nem direto nem via proxy — abre em nova aba (não tem controle do nome)
-                window.open(coverImage.dataUrl, '_blank');
-                showNotification('Não foi possível gerar uma cópia automática. Salve manualmente com "Salvar imagem como" na aba que abriu.', 'warning', 6000);
-            }
+            if (!cover.blob) showNotification('Preparando capa para download...', 'info', 2500);
+            const blob = await getCoverBlob(cover);
+            if (cover !== coverImage) return;
+            if (!blob) { showCoverDownloadError(); return; }
+            saveCoverExport(blob, name + '.jpg');
         }
 
         function handleCoverUpload(file) {
