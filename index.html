@@ -2550,7 +2550,7 @@
         </div>
 
         <div style="margin-top:auto; text-align:center; padding:24px 0 8px; color:#aaa; font-size:13px; font-weight:600; letter-spacing:.02em;">
-            Beframe by Beside Media © 2026 · Revisão Lateral 01
+            Beframe by Beside Media © 2026 · Revisão Lateral 02
         </div>
 
         <!-- Modal: Como funciona o Beframe -->
@@ -2683,8 +2683,8 @@
                     <div class="color-display" id="colorDisplay" style="width:38px; height:38px; flex-shrink:0;"></div>
                     <input type="text" id="colorInput" class="color-input" placeholder="#FFFFFF" maxlength="7" value="#FFFFFF" style="font-size:13px; padding:8px; min-width:90px; flex:1;">
                     <button type="button" class="eyedropper-btn" id="eyedropperBtn" onclick="activateEyedropper()" style="padding:8px 12px; font-size:13px; flex-shrink:0; white-space:nowrap;"><span data-icon="palette" data-icon-size="14"></span> Cor</button>
-                    <button type="button" id="applyBackgroundToAll" class="batch-action-btn" onclick="applyAppearanceToBatch('background')" style="width:100%;padding:10px;background:#eef2ff;border-color:#c7d2fe;color:#343fa0;">Aplicar a todas as imagens</button>
                 </div>
+                <button type="button" id="applyBackgroundToAll" class="batch-action-btn" disabled title="Escolha Personalizado para aplicar a cor ao lote" onclick="applyAppearanceToBatch('background')" style="display:flex;width:100%;margin-top:8px;padding:10px;background:#eef2ff;border-color:#c7d2fe;color:#343fa0;">Aplicar a todas as imagens</button>
             </div>
             <!-- Slot de troca de imagem (edit banner) -->
             <div id="subSlotUploads" style="border-top:2px solid #e0e7ff; padding-top:12px; margin-top:4px;"></div>
@@ -3933,6 +3933,9 @@
         function updateColorPickerVisibility() {
             const bgMode = document.getElementById('bgMode').value;
             document.getElementById('customColorGroup').style.display = bgMode === 'custom' ? 'flex' : 'none';
+            const applyButton = document.getElementById('applyBackgroundToAll');
+            applyButton.disabled = bgMode !== 'custom';
+            applyButton.title = bgMode === 'custom' ? '' : 'Escolha Personalizado para aplicar a cor ao lote';
         }
 
 
@@ -6759,7 +6762,7 @@
             
             document.getElementById('fitMode').value = 'contain';
             document.getElementById('bgMode').value = 'dominant';
-            document.getElementById('customColorGroup').style.display = 'none';
+            updateColorPickerVisibility();
 
             deactivateAllModes();
 
