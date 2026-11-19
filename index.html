@@ -2427,6 +2427,7 @@
                             <p id="coverFileName" style="font-family:monospace; font-size:14px; color:#667eea; font-weight:700;"></p>
                             <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
                                 <button class="action-btn download-btn" onclick="closeCoverModal()" style="margin:0;"><span data-icon="check"></span> Salvar</button>
+                                <button type="button" class="action-btn" onclick="openGallery()" style="margin:0;" title="Escolher outra capa na galeria"><span data-icon="folderOpen"></span> Escolher outra</button>
                                 <button type="button" class="action-btn" onclick="document.getElementById('coverUploadInput').value=''; document.getElementById('coverUploadInput').click()" style="margin:0;"><span data-icon="camera"></span> Trocar arquivo</button>
                                 <button class="action-btn" onclick="removeCover()" style="margin:0; background:#fee2e2; color:#dc2626; border-color:#fca5a5;"><span data-icon="trash"></span> Remover</button>
                             </div>
@@ -7480,7 +7481,8 @@
         const LIVE_GALLERY_HOSTS = Object.freeze({
             manualweb: 'manualdaweb.com', guiadin: 'guiadin.com', yacuenta: 'yacuenta.com',
             bemotors: 'bemotors.com.br', insiderbits: 'insiderbits.com', stonkstutors: 'stonkstutors.com',
-            syne: 'syne.com.br', tuguiasocial: 'tuguiasocial.com', tutorsya: 'tutorsya.com', embarkei: 'embarkei.com'
+            syne: 'syne.com.br', tuguiasocial: 'tuguiasocial.com', tutorsya: 'tutorsya.com', embarkei: 'embarkei.com',
+            carreiraemcurso: 'carreiraemcurso.com', credhelper: 'credhelper.com', pasofacil: 'pasofacil.com'
         });
         const LIVE_GALLERY_CATEGORY = '__recent_covers__';
         const liveGalleryEntries = new Map();
