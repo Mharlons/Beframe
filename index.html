@@ -2504,10 +2504,11 @@
                 <button type="button" class="action-btn" onclick="openFilenameModal()" style="margin:0; font-size:13px; padding:8px 14px;"><span data-icon="edit"></span> Nomenclatura</button>
             </h3>
 
-            <div id="bulkResultsActions" style="display:none;gap:8px;justify-content:center;align-items:center;flex-wrap:wrap;margin-bottom:14px;">
+            <div id="bulkResultsActions" role="group" aria-label="Gerenciar imagens de corpo" style="display:none;gap:8px;justify-content:center;align-items:center;flex-wrap:wrap;margin-bottom:14px;padding:10px;background:#fff;border:1px solid #e0e7ff;border-radius:12px;">
                 <button type="button" class="portal-btn" id="toggleResultSelection" onclick="toggleBulkResultSelection()">Selecionar várias</button>
+                <button type="button" class="portal-btn" id="selectAllResults" hidden onclick="toggleSelectAllResults()">Selecionar todas</button>
                 <button type="button" class="portal-btn" id="deleteSelectedResults" hidden onclick="bulkDeleteResults(false)" style="color:#b91c1c;">Excluir selecionadas</button>
-                <button type="button" class="portal-btn" onclick="bulkDeleteResults(true)" style="color:#b91c1c;">Excluir todas</button>
+                <button type="button" class="portal-btn" onclick="bulkDeleteResults(true)" style="color:#b91c1c;border-color:#fecaca;">Apagar todas</button>
             </div>
             <div id="pdfResultsGrid" style="display:flex; flex-wrap:wrap; gap:18px; justify-content:center;" ondragover="event.preventDefault();" ondrop="if(event.target===this){event.preventDefault(); const fromIdx = pdfResults.findIndex(x => x._uid === _draggedResultUid); if (fromIdx > -1) movePdfResult(fromIdx, pdfResults.length - 1);}"></div>
             <div style="display:flex; gap:16px; justify-content:center; margin-top:24px; flex-wrap:wrap;">
@@ -2670,7 +2671,7 @@
                     <div class="color-display" id="colorDisplay" style="width:38px; height:38px; flex-shrink:0;"></div>
                     <input type="text" id="colorInput" class="color-input" placeholder="#FFFFFF" maxlength="7" value="#FFFFFF" style="font-size:13px; padding:8px; min-width:90px; flex:1;">
                     <button type="button" class="eyedropper-btn" id="eyedropperBtn" onclick="activateEyedropper()" style="padding:8px 12px; font-size:13px; flex-shrink:0; white-space:nowrap;"><span data-icon="palette" data-icon-size="14"></span> Cor</button>
-                    <button type="button" class="portal-btn" onclick="applyAppearanceToBatch('background')" style="width:100%;">Aplicar a todas as imagens</button>
+                    <button type="button" id="applyBackgroundToAll" class="portal-btn" onclick="applyAppearanceToBatch('background')" style="width:100%;padding:10px;background:#eef2ff;border-color:#c7d2fe;color:#343fa0;">Aplicar a todas as imagens</button>
                 </div>
             </div>
             <!-- Slot de troca de imagem (edit banner) -->
@@ -5569,6 +5570,11 @@
             const config = customFrameStash;
             const color = frames[activeFrameIndex]?.customColor;
             if (useFrame ? !config : !/^#[0-9a-f]{6}$/i.test(color || '')) return;
+            const backgroundButton = useFrame ? null : document.getElementById('applyBackgroundToAll');
+            if (backgroundButton) {
+                backgroundButton.disabled = true;
+                backgroundButton.textContent = 'Aplicando cor…';
+            }
             editingBusy = true;
             const currentIndex = editingPdfResultIndex;
             const batch = [...pdfResults];
@@ -5639,7 +5645,13 @@
                 showNotification(useFrame ? 'Moldura aplicada a todas as imagens de corpo.' : 'Cor aplicada a todas as imagens de corpo.', 'success');
             } catch (err) {
                 showNotification(err?.message || 'Não foi possível atualizar o lote.', 'error');
-            } finally { editingBusy = false; }
+            } finally {
+                editingBusy = false;
+                if (backgroundButton) {
+                    backgroundButton.disabled = false;
+                    backgroundButton.textContent = 'Aplicar a todas as imagens';
+                }
+            }
         }
 
         function showPdfResultsPreview(results, count) {
@@ -5792,6 +5804,9 @@
             const toggle = document.getElementById('toggleResultSelection');
             toggle.textContent = selectingResults ? 'Cancelar seleção' : 'Selecionar várias';
             toggle.setAttribute('aria-pressed', String(selectingResults));
+            const selectAll = document.getElementById('selectAllResults');
+            selectAll.hidden = !selectingResults;
+            selectAll.textContent = selectedResults.size === pdfResults.length ? 'Desmarcar todas' : 'Selecionar todas';
             const deleteButton = document.getElementById('deleteSelectedResults');
             deleteButton.hidden = !selectingResults;
             deleteButton.disabled = !selectedResults.size;
@@ -5803,6 +5818,14 @@
             selectingResults = !selectingResults;
             selectedResults.clear();
             renderPdfResultsGrid();
+        }
+
+        function toggleSelectAllResults() {
+            if (!selectingResults || editingBusy || frameChangePending || isProcessingPdf) return;
+            if (selectedResults.size === pdfResults.length) selectedResults.clear();
+            else pdfResults.forEach(result => selectedResults.add(result));
+            renderPdfResultsGrid();
+            document.getElementById('selectAllResults').focus();
         }
 
         function bulkDeleteResults(all) {
