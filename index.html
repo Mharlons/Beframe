@@ -7706,7 +7706,7 @@
                 const seen = new Set();
                 let partial = false;
                 try {
-                    for (let page = 1; page <= 6; page++) {
+                    for (let page = 1; page <= 4; page++) {
                         const url = new URL(source);
                         Object.entries({ page, per_page: 25, order: 'desc', orderby: 'date', _embed: 'wp:featuredmedia',
                             _fields: 'title,featured_media,_links,_embedded' }).forEach(([k,v]) => url.searchParams.set(k, v));
