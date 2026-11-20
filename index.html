@@ -2448,7 +2448,8 @@
                             </div>
                             <div id="credhelperCoverHelp" hidden style="text-align:center;max-width:360px;font-size:13px;color:#555;">
                                 <button type="button" class="action-btn" onclick="pasteCredhelperCover()" style="margin:0 0 8px;">Colar imagem copiada</button>
-                                <p>Se o download da galeria falhar, clique com o botão direito na capa acima, escolha “Copiar imagem” e depois clique em “Colar imagem copiada”.</p>
+                                <p>Se o download falhar, clique com o botão direito na prévia e escolha “Copiar imagem”. Depois use ⌘V / Ctrl+V nesta janela ou clique em “Colar imagem copiada”. Você também pode usar “Trocar arquivo”.</p>
+                                <button type="button" id="credhelperBodyOnly" class="image-slot-btn" onclick="downloadCredhelperBodyOnly()" hidden style="margin-top:10px;">Baixar ZIP sem a capa</button>
                             </div>
                             <p id="coverFileName" style="font-family:monospace; font-size:14px; color:#667eea; font-weight:700;"></p>
                             <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
@@ -2557,7 +2558,7 @@
         </div>
 
         <div style="margin-top:auto; text-align:center; padding:24px 0 8px; color:#aaa; font-size:13px; font-weight:600; letter-spacing:.02em;">
-            Beframe by Beside Media © 2026 · Revisão Portais 01
+            Beframe by Beside Media © 2026 · Revisão Credhelper 02
         </div>
 
         <!-- Modal: Como funciona o Beframe -->
@@ -6364,19 +6365,19 @@
             if (notify) showNotification('Ajuste cancelado.', 'info', 2000);
         }
 
-        async function downloadAllPdfResults() {
+        async function downloadAllPdfResults(skipCover = false) {
             if (frameChangePending) { showNotification('As molduras estão sendo atualizadas.', 'info'); return; }
-            if (!pdfResults.length && !coverImage) return;
+            if (!pdfResults.length && (skipCover || !coverImage)) return;
             renamePdfResults();
-            const cover = coverImage;
+            const cover = skipCover ? null : coverImage;
             const coverName = getCoverFileName() + '.jpg';
             const title = (getArticleTitle() || 'molduras').replace(/[^a-zA-Z0-9À-ÿ _-]/g, '').trim() || 'molduras';
             const results = pdfResults.map(r => ({ name: r.name, blob: r.blob }));
             showNotification(`Gerando ZIP "${title}.zip"...`, 'info', 3000);
             try {
                 const coverBlob = cover ? await getCoverBlob(cover) : null;
-                if (cover !== coverImage) return;
-                if (cover && !coverBlob) { showCoverDownloadError(); return; }
+                if (!skipCover && cover !== coverImage) return;
+                if (cover && !coverBlob) { showCoverDownloadError('zip'); return; }
                 const zip = new JSZip();
                 results.forEach(r => zip.file(`${r.name}.jpg`, r.blob));
                 if (coverBlob) zip.file(coverName, coverBlob);
@@ -6517,6 +6518,7 @@
             document.getElementById('coverModalOverlay').style.display = 'flex';
         }
         function closeCoverModal() {
+            credhelperRetry = null;
             document.getElementById('coverModalOverlay').style.display = 'none';
         }
         function openHowItWorks() {
@@ -7049,6 +7051,46 @@
             } catch { return false; }
         }
 
+        let credhelperRetry = null;
+        async function acceptCredhelperCover(file, original) {
+            if (!file?.type.startsWith('image/') || original !== coverImage) return;
+            // Converte antes de substituir a capa para não perder a prévia se o arquivo for inválido.
+            const localUrl = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(reader.error);
+                reader.readAsDataURL(file);
+            });
+            const jpg = await fetchImageBlob(localUrl);
+            if (!jpg) throw new Error('Imagem inválida');
+            if (coverImage !== original) return;
+            const overlay = document.getElementById('coverModalOverlay');
+            const retry = overlay.style.display === 'flex' && credhelperRetry?.cover === original ? credhelperRetry.kind : null;
+            credhelperRetry = null;
+            setCoverImageFromUrl(localUrl, jpg);
+            if (retry === 'zip') { closeCoverModal(); await downloadAllPdfResults(); }
+            else if (retry === 'cover') { closeCoverModal(); await downloadCover(); }
+            else showNotification('Capa pronta para baixar.', 'success', 4500);
+        }
+        function handleCredhelperRecovery(file, original) {
+            return acceptCredhelperCover(file, original).catch(() => {
+                showNotification('Não consegui usar essa imagem. Tente enviar a capa em JPG ou PNG.', 'warning', 8000);
+            });
+        }
+        document.addEventListener('paste', e => {
+            if (!isCredhelperCover(coverImage?.dataUrl) || document.getElementById('coverModalOverlay').style.display !== 'flex'
+                || document.getElementById('galleryModal').style.display === 'flex') return;
+            const file = Array.from(e.clipboardData?.items || []).find(item => item.kind === 'file' && item.type.startsWith('image/'))?.getAsFile();
+            if (!file) return;
+            e.preventDefault();
+            handleCredhelperRecovery(file, coverImage);
+        });
+        function downloadCredhelperBodyOnly() {
+            if (credhelperRetry?.kind !== 'zip' || credhelperRetry.cover !== coverImage || !pdfResults.length) return;
+            credhelperRetry = null;
+            closeCoverModal();
+            downloadAllPdfResults(true);
+        }
         async function pasteCredhelperCover() {
             const cover = coverImage;
             if (!isCredhelperCover(cover?.dataUrl)) return;
@@ -7058,13 +7100,7 @@
                     const type = item.types.find(t => t.startsWith('image/'));
                     if (!type) continue;
                     const file = await item.getType(type);
-                    const reader = new FileReader();
-                    reader.onload = () => {
-                        if (cover !== coverImage) return;
-                        setCoverImage(reader.result);
-                        showNotification('Capa copiada pronta para baixar com o ZIP.', 'success', 5000);
-                    };
-                    reader.readAsDataURL(file);
+                    await handleCredhelperRecovery(file, cover);
                     return;
                 }
             } catch { /* Sem acesso à área de transferência. */ }
@@ -7137,10 +7173,11 @@
             setTimeout(() => URL.revokeObjectURL(url), 30000);
         }
 
-        function showCoverDownloadError() {
+        function showCoverDownloadError(kind = 'cover') {
             if (isCredhelperCover(coverImage?.dataUrl)) {
+                credhelperRetry = { cover: coverImage, kind };
                 openCoverModal();
-                showNotification('O Credhelper não entregou a capa para o ZIP. Copie a imagem na prévia e use Colar imagem copiada, ou use Trocar arquivo.', 'warning', 10000);
+                showNotification('O download direto da capa do Credhelper falhou. Cole a imagem copiada ou use Trocar arquivo para continuar o download.', 'warning', 10000);
                 return;
             }
             showNotification('Não foi possível carregar a capa da galeria. Use Escolha da Capa → Trocar arquivo para enviar a capa do seu computador e tente baixar novamente.', 'warning', 10000);
@@ -7153,6 +7190,7 @@
             const previewArea = document.getElementById('coverPreviewArea');
             if (!chooseButtons || !previewArea) return;
             document.getElementById('credhelperCoverHelp').hidden = !isCredhelperCover(coverImage?.dataUrl);
+            document.getElementById('credhelperBodyOnly').hidden = !(credhelperRetry?.kind === 'zip' && credhelperRetry.cover === coverImage && pdfResults.length);
             if (coverImage) {
                 chooseButtons.style.display = 'none';
                 previewArea.style.display = 'flex';
@@ -7162,8 +7200,8 @@
             }
         }
 
-        function setCoverImageFromUrl(url) {
-            const cover = { dataUrl: url, name: getCoverFileName(), blob: null };
+        function setCoverImageFromUrl(url, blob = null) {
+            const cover = { dataUrl: url, name: getCoverFileName(), blob };
             coverImage = cover;
             const thumb = document.getElementById('coverThumb');
             if (thumb) thumb.src = url;
@@ -7211,6 +7249,7 @@
 
         function handleCoverUpload(file) {
             if (!file || !file.type.startsWith('image/')) return;
+            if (isCredhelperCover(coverImage?.dataUrl)) { handleCredhelperRecovery(file, coverImage); return; }
             const reader = new FileReader();
             reader.onload = e => setCoverImage(e.target.result);
             reader.readAsDataURL(file);
@@ -7667,7 +7706,7 @@
                 const seen = new Set();
                 let partial = false;
                 try {
-                    for (let page = 1; page <= 3; page++) {
+                    for (let page = 1; page <= 6; page++) {
                         const url = new URL(source);
                         Object.entries({ page, per_page: 25, order: 'desc', orderby: 'date', _embed: 'wp:featuredmedia',
                             _fields: 'title,featured_media,_links,_embedded' }).forEach(([k,v]) => url.searchParams.set(k, v));
